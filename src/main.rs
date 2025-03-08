@@ -195,17 +195,18 @@ impl App {
         }
     }
     fn send(&mut self, job: Work) {
+        if self.installing {
+            return;
+        }
         match self.work.try_send(job) {
             Ok(()) => self.local_busy = true,
             Err(e) => self.message = format!("Worker unavailable: {e}"),
         }
     }
     fn check(&mut self, startup: bool) {
-        if !self.net_busy {
-            if self.network.try_send(Network::Check(startup)).is_ok() {
-                self.net_busy = true;
-                self.update_status = "Checking releases…".into();
-            }
+        if !self.net_busy && self.network.try_send(Network::Check(startup)).is_ok() {
+            self.net_busy = true;
+            self.update_status = "Checking releases…".into();
         }
     }
     fn invalidate(&mut self) {
@@ -315,6 +316,7 @@ impl App {
             }
         }
         if !self.local_busy
+            && !self.installing
             && let Some(since) = self.dirty_since
         {
             if since.elapsed() >= Duration::from_millis(160) {
@@ -343,8 +345,9 @@ impl App {
             if let Some((done,total))=self.progress {ui.add(egui::ProgressBar::new(done as f32/total.max(1) as f32).text(format!("Downloading: {} / {} KB",done/1024,total/1024)));}
             if let Some(update)=self.update.clone() {
                 ui.label("Installation verifies SHA-256, closes this app, replaces its EXE and restarts. Folder backups and settings are preserved.");
-                if ui.add_enabled(!self.net_busy&&!self.local_busy&&self.plans.is_empty(),egui::Button::new("Download and install")).clicked() {
-                    if self.network.try_send(Network::Install(update)).is_ok(){self.net_busy=true;self.installing=true;self.update_status="Downloading and verifying update…".into();}
+                if ui.add_enabled(!self.net_busy&&!self.local_busy&&self.plans.is_empty(),egui::Button::new("Download and install")).clicked()
+                    && self.network.try_send(Network::Install(update)).is_ok() {
+                    self.net_busy=true;self.installing=true;self.update_status="Downloading and verifying update…".into();
                 }
             }
             ui.separator();ui.heading("Explorer integration");
@@ -360,13 +363,17 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.receive(ctx);
         if ctx.input(|i| i.viewport().close_requested()) && (self.local_busy || self.installing) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.message = "Wait for the current operation to finish before closing.".into();
         }
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+    }
+
+    fn ui(&mut self, root: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = root.ctx().clone();
+        egui::Panel::top("header").show(root, |ui| {
             ui.add_space(8.);
             ui.horizontal(|ui| {
                 ui.heading("FolderIcons");
@@ -390,7 +397,7 @@ impl eframe::App for App {
                 });
             }
         });
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+        egui::Panel::bottom("status").show(root, |ui| {
             ui.horizontal(|ui| {
                 if self.local_busy {
                     ui.spinner();
@@ -398,7 +405,7 @@ impl eframe::App for App {
                 ui.label(&self.message);
             });
         });
-        egui::SidePanel::left("design").exact_width(292.).show(ctx,|ui|{
+        egui::Panel::left("design").exact_size(292.).show(root,|ui|{
             ui.heading("Design");
             if let Some(texture)=&self.texture {ui.add(egui::Image::new(texture).fit_to_exact_size(egui::vec2(240.,240.)));}
             else {ui.allocate_space(egui::vec2(240.,240.));}
@@ -419,7 +426,7 @@ impl eframe::App for App {
             });
             ui.small("Photos are embedded in the generated icon. The original photo stays untouched. Each ICO includes sizes from 16 to 256 px.");
         });
-        egui::CentralPanel::default().show(ctx,|ui|{
+        egui::CentralPanel::default().show(root,|ui|{
             ui.horizontal(|ui|{ui.heading("Folders");ui.label(format!("{} / 128 selected",self.paths.len()));});
             ui.horizontal(|ui|{
                 if ui.add_enabled(!self.local_busy,egui::Button::new("Add folders…")).clicked(){self.send(Work::PickFolders);}
@@ -460,7 +467,7 @@ impl eframe::App for App {
             });
         });
         if self.settings_open {
-            self.settings_ui(ctx);
+            self.settings_ui(&ctx);
         }
     }
 }

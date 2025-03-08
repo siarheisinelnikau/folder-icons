@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 
 fn decode(bytes: &[u8]) -> Result<String> {
     if bytes.starts_with(&[0xff, 0xfe]) {
-        if bytes.len() % 2 != 0 {
+        if !bytes.len().is_multiple_of(2) {
             bail!("Malformed UTF-16 desktop.ini");
         }
         let words: Vec<u16> = bytes[2..]
@@ -92,11 +92,9 @@ mod tests {
     }
     #[test]
     fn handles_missing_newline_and_rejects_ambiguous_input() {
-        assert!(
-            decode(&with_icon(b"[.ShellClassInfo]", "x.ico").unwrap())
-                .unwrap()
-                .contains("]\r\nIconResource=")
-                == false
+        assert_eq!(
+            decode(&with_icon(b"[.ShellClassInfo]", "x.ico").unwrap()).unwrap(),
+            "[.ShellClassInfo]\nIconResource=x.ico,0\n"
         );
         assert!(with_icon(&[0x80], "x.ico").is_err());
         assert!(with_icon(b"[.ShellClassInfo]\n[.ShellClassInfo]\n", "x.ico").is_err());

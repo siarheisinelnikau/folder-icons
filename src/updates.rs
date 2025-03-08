@@ -244,28 +244,65 @@ pub fn start_install(stage: &Path) -> Result<()> {
         .parent()
         .context("No executable directory")?
         .join(format!(".FolderIcons-helper-{}.exe", std::process::id()));
-    fs::OpenOptions::new()
+    let mut helper_file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(&helper)?
-        .write_all(&fs::read(&exe)?)?;
+        .open(&helper)?;
+    helper_file.write_all(&fs::read(&exe)?)?;
+    helper_file.sync_all()?;
+    drop(helper_file);
+    let ready = helper.with_extension("ready");
+    ensure!(
+        !ready.exists(),
+        "An earlier update handshake exists; close the app and clean up the stale helper files"
+    );
     let mut command = std::process::Command::new(&helper);
     command
         .arg("--finish-update")
         .arg(std::process::id().to_string())
         .arg(&exe)
         .arg(stage)
-        .arg(digest(&bytes));
+        .arg(digest(&bytes))
+        .arg(&ready);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
-    if let Err(e) = command.spawn() {
-        let _ = fs::remove_file(helper);
-        return Err(e.into());
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            let _ = fs::remove_file(helper);
+            return Err(e.into());
+        }
+    };
+    // Handshake guarantees that the helper holds the parent process handle before
+    // the UI can exit, avoiding a race with OpenProcess on an already exited PID.
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        if ready.try_exists()? {
+            ensure!(
+                platform::read_optional(&ready, 32)?.as_deref() == Some(b"ready"),
+                "Invalid update handshake"
+            );
+            fs::remove_file(&ready)?;
+            return Ok(());
+        }
+        if let Some(status) = child.try_wait()? {
+            bail!(
+                "Update helper exited before installation ({status}). Check {}",
+                helper.with_extension("error.txt").display()
+            );
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            bail!(
+                "Update helper did not become ready within 10 seconds; the installed executable is unchanged"
+            );
+        }
+        std::thread::sleep(Duration::from_millis(40));
     }
-    Ok(())
 }
 
 /// Internal helper mode. Never used by tests. A failed replacement keeps a rollback copy.
@@ -276,10 +313,16 @@ pub fn finish_install(args: &[std::ffi::OsString]) -> Result<()> {
             Foundation::{CloseHandle, WAIT_OBJECT_0},
             System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject},
         };
-        ensure!(args.len() == 4, "Invalid update-helper arguments");
+        ensure!(args.len() == 5, "Invalid update-helper arguments");
         let pid = args[0].to_str().context("Invalid PID")?.parse::<u32>()?;
         let exe = PathBuf::from(&args[1]);
         let stage = PathBuf::from(&args[2]);
+        let ready = PathBuf::from(&args[4]);
+        let helper = std::env::current_exe()?;
+        ensure!(
+            ready == helper.with_extension("ready") && ready.parent() == exe.parent(),
+            "Invalid helper handshake path"
+        );
         ensure!(
             exe.is_absolute()
                 && stage.parent() == exe.parent()
@@ -300,6 +343,20 @@ pub fn finish_install(args: &[std::ffi::OsString]) -> Result<()> {
         // SAFETY: the process handle is used only for waiting and closed on every path.
         let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
         if !handle.is_null() {
+            if let Err(error) = (|| -> Result<()> {
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(&ready)?;
+                file.write_all(b"ready")?;
+                file.sync_all()?;
+                Ok(())
+            })() {
+                unsafe {
+                    CloseHandle(handle);
+                }
+                return Err(error);
+            }
             let wait = unsafe { WaitForSingleObject(handle, 30000) };
             unsafe {
                 CloseHandle(handle);
@@ -311,7 +368,7 @@ pub fn finish_install(args: &[std::ffi::OsString]) -> Result<()> {
         } else {
             bail!("Cannot wait for the running application; installation cancelled");
         }
-        let backup = exe.with_extension("exe.previous");
+        let backup = exe.with_extension(format!("exe.previous-{VERSION}"));
         ensure!(
             !backup.exists(),
             "A previous rollback executable already exists"

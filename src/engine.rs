@@ -9,7 +9,7 @@ use std::{
 
 const STORE: &str = ".foldericons";
 const MAX_INI: u64 = 1024 * 1024;
-const MAX_MANIFEST: u64 = 16 * 1024 * 1024;
+const MAX_MANIFEST: u64 = 48 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
@@ -62,10 +62,11 @@ fn manifest(folder: &Path) -> Result<Option<(Manifest, Vec<u8>)>> {
         "Unknown recovery manifest"
     );
     for icon in &m.icons {
+        let stem = icon
+            .strip_suffix(".ico")
+            .context("Invalid manifest icon filename")?;
         ensure!(
-            icon.len() == 68
-                && icon.ends_with(".ico")
-                && icon[..64].bytes().all(|x| x.is_ascii_hexdigit()),
+            stem.len() == 64 && stem.bytes().all(|x| x.is_ascii_hexdigit()),
             "Invalid manifest icon filename"
         );
     }
@@ -110,6 +111,10 @@ pub fn plan(folder: &Path, action: Action, icon: Option<&[u8]>) -> Result<Folder
                 before.as_deref().unwrap_or_default(),
                 &format!("{STORE}\\{name}"),
             )?;
+            ensure!(
+                after.len() as u64 <= MAX_INI,
+                "Unicode desktop.ini would exceed the supported size limit"
+            );
             (Some(after), Some(icon.to_vec()), Some(name))
         }
         Action::Restore => {
@@ -210,6 +215,13 @@ pub fn execute(plan: &FolderPlan) -> Result<()> {
             )?;
             platform::set_attributes(&plan.folder, plan.folder_attrs | platform::READONLY)?;
             platform::set_attributes(&store, platform::attributes(&store)? | platform::HIDDEN)?;
+            // Commit the journal after all appearance writes. After this point an external
+            // deletion of desktop.ini must not be mistaken for an interrupted first Apply.
+            m.previous = Some(m.applied.clone());
+            platform::atomic_write(
+                &store.join("manifest.json"),
+                &serde_json::to_vec_pretty(&m)?,
+            )?;
         }
         Action::Restore => {
             m.restoring = true;
@@ -291,6 +303,11 @@ pub fn batch_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fixture() -> tempfile::TempDir {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(".test-output");
+        fs::create_dir_all(&root).unwrap();
+        tempfile::tempdir_in(root).unwrap()
+    }
     fn icon() -> Vec<u8> {
         crate::render::ico(&crate::render::render(
             &crate::render::Style::default(),
@@ -300,7 +317,7 @@ mod tests {
     }
     #[test]
     fn preserves_bytes_and_attributes_through_reapply_and_restore() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixture();
         let f = dir.path();
         let original = ini::unicode(
             "; original\r\n[.ShellClassInfo]\r\nInfoTip=資料\r\nIconResource=old.dll,8\r\n[ViewState]\r\nMode=3\r\n",
@@ -321,7 +338,7 @@ mod tests {
     }
     #[test]
     fn refuses_stale_plans_and_external_edits_without_data_loss() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixture();
         let f = dir.path();
         let ico = icon();
         let p = plan(f, Action::Apply, Some(&ico)).unwrap();
@@ -335,7 +352,7 @@ mod tests {
     }
     #[test]
     fn absent_ini_restores_to_absent_and_unmanaged_store_is_never_claimed() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixture();
         let f = dir.path();
         execute(&plan(f, Action::Apply, Some(&icon())).unwrap()).unwrap();
         execute(&plan(f, Action::Restore, None).unwrap()).unwrap();
@@ -347,12 +364,36 @@ mod tests {
     }
     #[test]
     fn pending_journal_recovers_when_ini_write_did_not_happen() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = fixture();
         let f = dir.path();
         let p = plan(f, Action::Apply, Some(&icon())).unwrap();
         execute(&p).unwrap();
+        let (mut m, _) = manifest(f).unwrap().unwrap();
+        m.previous = None; // Simulate a journal committed before the INI write.
+        platform::atomic_write(
+            &f.join(STORE).join("manifest.json"),
+            &serde_json::to_vec_pretty(&m).unwrap(),
+        )
+        .unwrap();
         fs::remove_file(f.join("desktop.ini")).unwrap();
         execute(&plan(f, Action::Restore, None).unwrap()).unwrap();
         assert!(!f.join(STORE).exists());
+    }
+
+    #[test]
+    fn committed_journal_refuses_external_deletion_and_preserves_foreign_files() {
+        let dir = fixture();
+        let f = dir.path();
+        execute(&plan(f, Action::Apply, Some(&icon())).unwrap()).unwrap();
+        let applied = fs::read(f.join("desktop.ini")).unwrap();
+        fs::remove_file(f.join("desktop.ini")).unwrap();
+        assert!(plan(f, Action::Restore, None).is_err());
+        fs::write(f.join("desktop.ini"), applied).unwrap();
+        fs::write(f.join(STORE).join("keep.txt"), b"personal file").unwrap();
+        execute(&plan(f, Action::Restore, None).unwrap()).unwrap();
+        assert_eq!(
+            fs::read(f.join(STORE).join("keep.txt")).unwrap(),
+            b"personal file"
+        );
     }
 }

@@ -1,4 +1,4 @@
-use anyhow::{Result, bail, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use std::{fs, io::Write, path::Path};
 
 pub const READONLY: u32 = 1;
@@ -106,26 +106,8 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
         file.write_all(bytes)?;
         file.sync_all()?;
         drop(file);
-        #[cfg(windows)]
-        {
-            use windows_sys::Win32::Storage::FileSystem::{
-                MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
-            };
-            // SAFETY: both owned UTF-16 buffers remain valid for the call.
-            ensure!(
-                unsafe {
-                    MoveFileExW(
-                        wide(&temp).as_ptr(),
-                        wide(path).as_ptr(),
-                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
-                    )
-                } != 0,
-                "Atomic replacement failed: {}",
-                std::io::Error::last_os_error()
-            );
-        }
-        #[cfg(not(windows))]
-        fs::rename(&temp, path)?;
+        fs::rename(&temp, path)
+            .with_context(|| format!("Cannot atomically replace {}", path.display()))?;
         Ok(())
     })();
     if result.is_err() {
