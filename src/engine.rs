@@ -303,10 +303,25 @@ pub fn batch_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn fixture() -> tempfile::TempDir {
+    struct Fixture(tempfile::TempDir);
+    impl Fixture {
+        fn path(&self) -> &Path {
+            self.0.path()
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            // Appearance tests may intentionally stop before Restore. Release the owned
+            // directory's read-only bit so TempDir can clean up its synthetic contents.
+            if let Ok(attrs) = platform::attributes(self.path()) {
+                let _ = platform::set_attributes(self.path(), attrs & !platform::READONLY);
+            }
+        }
+    }
+    fn fixture() -> Fixture {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(".test-output");
         fs::create_dir_all(&root).unwrap();
-        tempfile::tempdir_in(root).unwrap()
+        Fixture(tempfile::tempdir_in(root).unwrap())
     }
     fn icon() -> Vec<u8> {
         crate::render::ico(&crate::render::render(
@@ -395,5 +410,23 @@ mod tests {
             fs::read(f.join(STORE).join("keep.txt")).unwrap(),
             b"personal file"
         );
+    }
+
+    #[test]
+    fn malformed_manifest_name_is_rejected_without_panicking_or_touching_ini() {
+        let dir = fixture();
+        let f = dir.path();
+        execute(&plan(f, Action::Apply, Some(&icon())).unwrap()).unwrap();
+        let before = fs::read(f.join("desktop.ini")).unwrap();
+        let (mut m, _) = manifest(f).unwrap().unwrap();
+        // The previous byte-index check could split a multibyte character at offset 64.
+        m.icons = vec![format!("{}éa.ico", "x".repeat(61))];
+        platform::atomic_write(
+            &f.join(STORE).join("manifest.json"),
+            &serde_json::to_vec(&m).unwrap(),
+        )
+        .unwrap();
+        assert!(plan(f, Action::Restore, None).is_err());
+        assert_eq!(fs::read(f.join("desktop.ini")).unwrap(), before);
     }
 }

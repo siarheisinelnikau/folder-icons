@@ -21,7 +21,7 @@ enum Work {
     PickFolders,
     PickPhoto,
     Preview(u64, Style, Option<PathBuf>),
-    Plan(Vec<PathBuf>, Action, Option<Vec<u8>>),
+    Plan(u64, Vec<PathBuf>, Action, Option<Vec<u8>>),
     Execute(Vec<FolderPlan>),
     Context(bool),
 }
@@ -31,7 +31,7 @@ enum ResultEvent {
     Paths(Vec<PathBuf>),
     Photo(Option<PathBuf>),
     Preview(u64, image::RgbaImage, Vec<u8>),
-    Plan(Vec<FolderPlan>, Vec<String>),
+    Plan(u64, Vec<FolderPlan>, Vec<String>),
     Executed(Vec<String>),
     Message(String),
     Error(String),
@@ -88,6 +88,7 @@ struct App {
     local_busy: bool,
     net_busy: bool,
     installing: bool,
+    restarting: bool,
     settings: Settings,
     settings_ready: bool,
     settings_open: bool,
@@ -173,6 +174,7 @@ impl App {
             local_busy: true,
             net_busy: false,
             installing: false,
+            restarting: false,
             settings: Settings::default(),
             settings_ready: false,
             settings_open: false,
@@ -195,8 +197,12 @@ impl App {
         }
     }
     fn send(&mut self, job: Work) {
-        if self.installing {
+        if self.installing || self.restarting {
             return;
+        }
+        if matches!(&job, Work::Plan(..)) {
+            self.plans.clear();
+            self.plan_errors.clear();
         }
         match self.work.try_send(job) {
             Ok(()) => self.local_busy = true,
@@ -261,11 +267,16 @@ impl App {
                         self.preview_revision = revision;
                     }
                 }
-                ResultEvent::Plan(plans, errors) => {
-                    self.plans = plans;
-                    self.plan_errors = errors;
-                    self.report.clear();
-                    self.message = "Review the exact folders below, then confirm the plan.".into();
+                ResultEvent::Plan(revision, plans, errors) => {
+                    if revision == self.revision {
+                        self.plans = plans;
+                        self.plan_errors = errors;
+                        self.report.clear();
+                        self.message =
+                            "Review the exact folders below, then confirm the plan.".into();
+                    } else {
+                        self.message = "Design changed while planning. Build a new plan.".into();
+                    }
                 }
                 ResultEvent::Executed(report) => {
                     self.report = report;
@@ -304,6 +315,7 @@ impl App {
                 NetEvent::Progress(done, total) => self.progress = Some((done, total)),
                 NetEvent::Ready => {
                     self.installing = false;
+                    self.restarting = true;
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
                 NetEvent::Error(error) => {
@@ -317,6 +329,7 @@ impl App {
         }
         if !self.local_busy
             && !self.installing
+            && !self.restarting
             && let Some(since) = self.dirty_since
         {
             if since.elapsed() >= Duration::from_millis(160) {
@@ -372,6 +385,9 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, root: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if self.installing || self.restarting {
+            root.disable();
+        }
         let ctx = root.ctx().clone();
         egui::Panel::top("header").show(root, |ui| {
             ui.add_space(8.);
@@ -441,8 +457,8 @@ impl eframe::App for App {
             ui.separator();
             ui.horizontal(|ui|{
                 let ready=!self.local_busy&&!self.installing&&!self.paths.is_empty();
-                if ui.add_enabled(ready&&self.ico.is_some()&&self.preview_revision==self.revision,egui::Button::new("Build Apply plan")).clicked(){self.plan_action=Action::Apply;self.send(Work::Plan(self.paths.clone(),Action::Apply,self.ico.clone()));}
-                if ui.add_enabled(ready,egui::Button::new("Build Restore plan")).clicked(){self.plan_action=Action::Restore;self.send(Work::Plan(self.paths.clone(),Action::Restore,None));}
+                if ui.add_enabled(ready&&self.ico.is_some()&&self.preview_revision==self.revision,egui::Button::new("Build Apply plan")).clicked(){self.plan_action=Action::Apply;self.send(Work::Plan(self.revision,self.paths.clone(),Action::Apply,self.ico.clone()));}
+                if ui.add_enabled(ready,egui::Button::new("Build Restore plan")).clicked(){self.plan_action=Action::Restore;self.send(Work::Plan(self.revision,self.paths.clone(),Action::Restore,None));}
             });
             egui::ScrollArea::vertical().id_salt("plan").show(ui,|ui|{
                 if !self.plans.is_empty() {
@@ -516,7 +532,7 @@ fn run_work(
             let ico = render::ico(&img)?;
             ResultEvent::Preview(revision, img, ico)
         }
-        Work::Plan(paths, action, ico) => {
+        Work::Plan(revision, paths, action, ico) => {
             platform::require_windows()?;
             let mut plans = Vec::new();
             let mut errors = Vec::new();
@@ -526,7 +542,7 @@ fn run_work(
                     Err(e) => errors.push(format!("Skipped {}: {e:#}", path.display())),
                 }
             }
-            ResultEvent::Plan(plans, errors)
+            ResultEvent::Plan(revision, plans, errors)
         }
         Work::Execute(plans) => {
             platform::require_windows()?;

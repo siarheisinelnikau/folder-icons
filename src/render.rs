@@ -245,4 +245,19 @@ mod tests {
         let img = render(&Style::default(), Some(&photo));
         assert_eq!(img.get_pixel(100, 120).0, [255, 0, 0, 255]);
     }
+
+    #[test]
+    fn bounded_photo_loader_crops_png_and_rejects_oversized_dimensions() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".test-output");
+        std::fs::create_dir_all(&root).unwrap();
+        let dir = tempfile::tempdir_in(root).unwrap();
+        let file = dir.path().join("cover.png");
+        RgbaImage::from_pixel(400, 100, Rgba([10, 20, 30, 255]))
+            .save(&file)
+            .unwrap();
+        let cover = load_photo(&file).unwrap();
+        assert_eq!(cover.dimensions(), (208, 132));
+        RgbaImage::new(12001, 1).save(&file).unwrap();
+        assert!(load_photo(&file).is_err());
+    }
 }
