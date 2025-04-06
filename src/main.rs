@@ -16,7 +16,7 @@ use std::{
 };
 
 enum Work {
-    LoadSettings,
+    LoadSettings(Option<PathBuf>),
     SaveSettings(Settings),
     PickFolders,
     PickPhoto,
@@ -26,7 +26,7 @@ enum Work {
     Context(bool),
 }
 enum ResultEvent {
-    Settings(Settings, Option<String>),
+    Settings(Settings, Option<String>, Option<String>),
     Saved,
     Paths(Vec<PathBuf>),
     Photo(Option<PathBuf>),
@@ -53,14 +53,37 @@ fn main() -> eframe::Result {
         if let Err(e) = updates::finish_install(&args[1..]) {
             // Helper has no console in release mode; leave a local diagnostic for recovery.
             if let Ok(exe) = std::env::current_exe() {
-                let _ = std::fs::write(exe.with_extension("error.txt"), format!("{e:#}"));
+                let diagnostic = exe.with_extension("error.txt");
+                let _ = std::fs::write(&diagnostic, format!("{e:#}"));
+                // Reopen the preserved/replaced application to surface the failure in-app.
+                if let Some(target) = args.get(2).map(PathBuf::from)
+                    && target.is_absolute()
+                    && target.parent() == exe.parent()
+                    && target != exe
+                    && target.is_file()
+                {
+                    let mut command = std::process::Command::new(target);
+                    command.arg("--update-error").arg(diagnostic);
+                    #[cfg(windows)]
+                    {
+                        use std::os::windows::process::CommandExt;
+                        command.creation_flags(0x08000000);
+                    }
+                    let _ = command.spawn();
+                }
             }
             std::process::exit(1);
         }
         return Ok(());
     }
+    let update_error = if args.first().is_some_and(|x| x == "--update-error") {
+        args.get(1).map(PathBuf::from)
+    } else {
+        None
+    };
     let paths = args
         .into_iter()
+        .skip(if update_error.is_some() { 2 } else { 0 })
         .filter(|x| !x.to_string_lossy().starts_with("--"))
         .map(PathBuf::from)
         .take(128)
@@ -76,7 +99,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "FolderIcons",
         options,
-        Box::new(move |cc| Ok(Box::new(App::new(cc, paths)))),
+        Box::new(move |cc| Ok(Box::new(App::new(cc, paths, update_error)))),
     )
 }
 
@@ -110,7 +133,11 @@ struct App {
     progress: Option<(u64, u64)>,
 }
 impl App {
-    fn new(cc: &eframe::CreationContext<'_>, paths: Vec<PathBuf>) -> Self {
+    fn new(
+        cc: &eframe::CreationContext<'_>,
+        paths: Vec<PathBuf>,
+        update_error: Option<PathBuf>,
+    ) -> Self {
         cc.egui_ctx.set_visuals(egui::Visuals::dark());
         let (tx, rx) = mpsc::sync_channel(2);
         let (rtx, rrx) = mpsc::sync_channel(8);
@@ -164,7 +191,7 @@ impl App {
                 }
             })
             .expect("Cannot start update worker");
-        tx.try_send(Work::LoadSettings)
+        tx.try_send(Work::LoadSettings(update_error))
             .expect("Initial queue is empty");
         Self {
             work: tx,
@@ -226,11 +253,15 @@ impl App {
         while let Ok(event) = self.results.try_recv() {
             self.local_busy = false;
             match event {
-                ResultEvent::Settings(settings, error) => {
+                ResultEvent::Settings(settings, error, update_error) => {
                     self.settings = settings;
                     self.settings_ready = true;
                     if let Some(error) = error {
                         self.message = error;
+                    }
+                    if let Some(error) = update_error {
+                        self.message = format!("Previous update failed: {error}");
+                        self.settings_open = true;
                     }
                     if self.settings.check_on_startup {
                         self.check(true);
@@ -493,17 +524,36 @@ fn run_work(
     photo_cache: &mut Option<(PathBuf, image::RgbaImage)>,
 ) -> anyhow::Result<ResultEvent> {
     Ok(match job {
-        Work::LoadSettings => match settings::load() {
-            Ok(s) => ResultEvent::Settings(s, None),
-            Err(e) => ResultEvent::Settings(
-                Settings {
-                    check_on_startup: false,
-                },
-                Some(format!(
-                    "Cannot load settings; startup checks disabled for this session: {e:#}"
-                )),
-            ),
-        },
+        Work::LoadSettings(update_error) => {
+            let diagnostic = update_error.and_then(|path| {
+                let exe = std::env::current_exe().ok()?;
+                if path.parent() != exe.parent()
+                    || !path
+                        .file_name()?
+                        .to_str()?
+                        .starts_with(".FolderIcons-helper-")
+                    || path.extension()?.to_str()? != "txt"
+                {
+                    return None;
+                }
+                platform::read_optional(&path, 64 * 1024)
+                    .ok()
+                    .flatten()
+                    .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+            });
+            match settings::load() {
+                Ok(s) => ResultEvent::Settings(s, None, diagnostic),
+                Err(e) => ResultEvent::Settings(
+                    Settings {
+                        check_on_startup: false,
+                    },
+                    Some(format!(
+                        "Cannot load settings; startup checks disabled for this session: {e:#}"
+                    )),
+                    diagnostic,
+                ),
+            }
+        }
         Work::SaveSettings(s) => {
             settings::save(&s)?;
             ResultEvent::Saved
