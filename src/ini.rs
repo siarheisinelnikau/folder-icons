@@ -29,6 +29,9 @@ pub fn with_icon(original: &[u8], relative_icon: &str) -> Result<Vec<u8>> {
         bail!("Invalid icon path");
     }
     let text = decode(original)?;
+    if text.contains('\0') {
+        bail!("desktop.ini contains a NUL character; repair it before applying an icon");
+    }
     let newline = if text.contains("\r\n") || text.is_empty() {
         "\r\n"
     } else {
@@ -40,7 +43,10 @@ pub fn with_icon(original: &[u8], relative_icon: &str) -> Result<Vec<u8>> {
     let mut sections = 0;
     for line in text.split_inclusive('\n') {
         let trimmed = line.trim();
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+        if trimmed.starts_with('[') {
+            if !trimmed.ends_with(']') {
+                bail!("Ambiguous INI section header; repair desktop.ini before applying an icon");
+            }
             in_shell = trimmed.eq_ignore_ascii_case("[.ShellClassInfo]");
             if in_shell {
                 sections += 1;
@@ -99,5 +105,7 @@ mod tests {
         assert!(with_icon(&[0x80], "x.ico").is_err());
         assert!(with_icon(b"[.ShellClassInfo]\n[.ShellClassInfo]\n", "x.ico").is_err());
         assert!(with_icon(b"", "bad\npath").is_err());
+        assert!(with_icon(b"[Other\nIconFile=keep.ico", "x.ico").is_err());
+        assert!(with_icon(b"[Other]\0\nName=hidden", "x.ico").is_err());
     }
 }

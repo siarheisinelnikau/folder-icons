@@ -453,6 +453,7 @@ impl eframe::App for App {
             });
         });
         egui::Panel::left("design").exact_size(292.).show(root,|ui|{
+            egui::ScrollArea::vertical().id_salt("design_scroll").show(ui,|ui|{
             ui.heading("Design");
             if let Some(texture)=&self.texture {ui.add(egui::Image::new(texture).fit_to_exact_size(egui::vec2(240.,240.)));}
             else {ui.allocate_space(egui::vec2(240.,240.));}
@@ -472,6 +473,7 @@ impl eframe::App for App {
                 if ui.add_enabled(self.photo.is_some(),egui::Button::new("Remove")).clicked(){self.photo=None;self.invalidate();}
             });
             ui.small("Photos are embedded in the generated icon. The original photo stays untouched. Each ICO includes sizes from 16 to 256 px.");
+            });
         });
         egui::CentralPanel::default().show(root,|ui|{
             ui.horizontal(|ui|{ui.heading("Folders");ui.label(format!("{} / 128 selected",self.paths.len()));});
