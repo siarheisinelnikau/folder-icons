@@ -419,7 +419,7 @@ mod tests {
         execute(&plan(f, Action::Apply, Some(&icon())).unwrap()).unwrap();
         let before = fs::read(f.join("desktop.ini")).unwrap();
         let (mut m, _) = manifest(f).unwrap().unwrap();
-        // The previous byte-index check could split a multibyte character at offset 64.
+        // Non-ASCII stems are not valid content-addressed filenames.
         m.icons = vec![format!("{}éa.ico", "x".repeat(61))];
         platform::atomic_write(
             &f.join(STORE).join("manifest.json"),

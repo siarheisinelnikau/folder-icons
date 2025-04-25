@@ -1,0 +1,22 @@
+name: Windows checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo test --locked -j 2
+      - run: cargo clippy --locked --all-targets -j 2 -- -D warnings
+      - name: Package without launching the application
+        shell: pwsh
+        run: ./scripts/package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FolderIcons-Windows-x64
+          path: dist/
