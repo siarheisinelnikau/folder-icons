@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use eframe::egui;
+mod desktop;
 use folder_icons::{
     REPOSITORY, VERSION,
     engine::{self, Action, FolderPlan},
@@ -47,7 +47,7 @@ enum NetEvent {
     Error(String),
 }
 
-fn main() -> eframe::Result {
+fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     if args.first().is_some_and(|x| x == "--finish-update") {
         if let Err(e) = updates::finish_install(&args[1..]) {
@@ -88,19 +88,7 @@ fn main() -> eframe::Result {
         .map(PathBuf::from)
         .take(128)
         .collect();
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("FolderIcons")
-            .with_inner_size([1060., 740.])
-            .with_min_inner_size([820., 620.]),
-        renderer: eframe::Renderer::Glow,
-        ..Default::default()
-    };
-    eframe::run_native(
-        "FolderIcons",
-        options,
-        Box::new(move |cc| Ok(Box::new(App::new(cc, paths, update_error)))),
-    )
+    desktop::run(paths, update_error)
 }
 
 struct App {
@@ -131,17 +119,14 @@ struct App {
     update: Option<updates::Available>,
     update_status: String,
     progress: Option<(u64, u64)>,
+    render_timing: String,
 }
 impl App {
-    fn new(
-        cc: &eframe::CreationContext<'_>,
-        paths: Vec<PathBuf>,
-        update_error: Option<PathBuf>,
-    ) -> Self {
-        cc.egui_ctx.set_visuals(egui::Visuals::dark());
+    fn new(context: egui::Context, paths: Vec<PathBuf>, update_error: Option<PathBuf>) -> Self {
+        context.set_visuals(egui::Visuals::dark());
         let (tx, rx) = mpsc::sync_channel(2);
         let (rtx, rrx) = mpsc::sync_channel(8);
-        let ctx = cc.egui_ctx.clone();
+        let ctx = context.clone();
         std::thread::Builder::new()
             .name("foldericons-files".into())
             .spawn(move || {
@@ -158,7 +143,7 @@ impl App {
             .expect("Cannot start file worker");
         let (ntx, nrx) = mpsc::sync_channel(1);
         let (etx, erx) = mpsc::sync_channel(8);
-        let ctx = cc.egui_ctx.clone();
+        let ctx = context.clone();
         std::thread::Builder::new()
             .name("foldericons-updates".into())
             .spawn(move || {
@@ -221,6 +206,7 @@ impl App {
             update: None,
             update_status: "Not checked yet".into(),
             progress: None,
+            render_timing: "No frame samples yet".into(),
         }
     }
     fn send(&mut self, job: Work) {
@@ -347,7 +333,6 @@ impl App {
                 NetEvent::Ready => {
                     self.installing = false;
                     self.restarting = true;
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
                 NetEvent::Error(error) => {
                     self.installing = false;
@@ -379,6 +364,8 @@ impl App {
         let mut open = self.settings_open;
         egui::Window::new("Settings & updates").open(&mut open).default_width(530.).resizable(true).show(ctx,|ui|{
             ui.heading("FolderIcons");ui.label(format!("Installed version: {VERSION} · Windows x64 portable"));
+            ui.label("Rendering: CPU · Windows GDI");
+            ui.small(&self.render_timing);
             ui.hyperlink_to("Canonical repository (planned)",REPOSITORY);
             ui.separator();
             let response=ui.add_enabled(self.settings_ready&&!self.local_busy,egui::Checkbox::new(&mut self.settings.check_on_startup,"Check for updates on startup"));
@@ -406,21 +393,16 @@ impl App {
     }
 }
 
-impl eframe::App for App {
-    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+impl App {
+    fn logic(&mut self, ctx: &egui::Context) {
         self.receive(ctx);
-        if ctx.input(|i| i.viewport().close_requested()) && (self.local_busy || self.installing) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            self.message = "Wait for the current operation to finish before closing.".into();
-        }
     }
 
-    fn ui(&mut self, root: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        if self.installing || self.restarting {
-            root.disable();
-        }
-        let ctx = root.ctx().clone();
-        egui::Panel::top("header").show(root, |ui| {
+    fn ui(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("header").show(ctx, |ui| {
+            if self.installing || self.restarting {
+                ui.disable();
+            }
             ui.add_space(8.);
             ui.horizontal(|ui| {
                 ui.heading("FolderIcons");
@@ -444,7 +426,7 @@ impl eframe::App for App {
                 });
             }
         });
-        egui::Panel::bottom("status").show(root, |ui| {
+        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if self.local_busy {
                     ui.spinner();
@@ -452,7 +434,8 @@ impl eframe::App for App {
                 ui.label(&self.message);
             });
         });
-        egui::Panel::left("design").exact_size(292.).show(root,|ui|{
+        egui::SidePanel::left("design").exact_width(292.).show(ctx,|ui|{
+            if self.installing || self.restarting {ui.disable();}
             egui::ScrollArea::vertical().id_salt("design_scroll").show(ui,|ui|{
             ui.heading("Design");
             if let Some(texture)=&self.texture {ui.add(egui::Image::new(texture).fit_to_exact_size(egui::vec2(240.,240.)));}
@@ -475,7 +458,8 @@ impl eframe::App for App {
             ui.small("Photos are embedded in the generated icon. The original photo stays untouched. Each ICO includes sizes from 16 to 256 px.");
             });
         });
-        egui::CentralPanel::default().show(root,|ui|{
+        egui::CentralPanel::default().show(ctx,|ui|{
+            if self.installing || self.restarting {ui.disable();}
             ui.horizontal(|ui|{ui.heading("Folders");ui.label(format!("{} / 128 selected",self.paths.len()));});
             ui.horizontal(|ui|{
                 if ui.add_enabled(!self.local_busy,egui::Button::new("Add folders…")).clicked(){self.send(Work::PickFolders);}
@@ -516,7 +500,7 @@ impl eframe::App for App {
             });
         });
         if self.settings_open {
-            self.settings_ui(&ctx);
+            self.settings_ui(ctx);
         }
     }
 }
