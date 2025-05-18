@@ -1,11 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod capture;
 mod desktop;
+mod ui;
 use folder_icons::{
     REPOSITORY, VERSION,
     engine::{self, Action, FolderPlan},
     platform,
-    render::{self, Badge, Style},
+    render::{self, Style},
     settings::{self, Settings},
     updates,
 };
@@ -47,8 +49,32 @@ enum NetEvent {
     Error(String),
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() {
+    std::panic::set_hook(Box::new(|info| write_error_log(&info.to_string())));
+    if let Err(error) = run() {
+        write_error_log(&format!("{error:#}"));
+        std::process::exit(1);
+    }
+}
+
+fn write_error_log(message: &str) {
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::fs::write(exe.with_extension("error.log"), message);
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.first().is_some_and(|a| a == "--capture") {
+        return capture::run(&args[1..]);
+    }
+    if args.first().is_some_and(|a| a == "--diagnose") {
+        anyhow::ensure!(
+            (2..=3).contains(&args.len()),
+            "--diagnose requires an output JSON and optional fixture root"
+        );
+        return desktop::diagnose(PathBuf::from(&args[1]), args.get(2).map(PathBuf::from));
+    }
     if args.first().is_some_and(|x| x == "--finish-update") {
         if let Err(e) = updates::finish_install(&args[1..]) {
             // Helper has no console in release mode; leave a local diagnostic for recovery.
@@ -122,8 +148,13 @@ struct App {
     render_timing: String,
 }
 impl App {
-    fn new(context: egui::Context, paths: Vec<PathBuf>, update_error: Option<PathBuf>) -> Self {
-        context.set_visuals(egui::Visuals::dark());
+    fn new(
+        context: egui::Context,
+        paths: Vec<PathBuf>,
+        update_error: Option<PathBuf>,
+        isolated: bool,
+    ) -> Self {
+        ui::configure(&context);
         let (tx, rx) = mpsc::sync_channel(2);
         let (rtx, rrx) = mpsc::sync_channel(8);
         let ctx = context.clone();
@@ -176,19 +207,21 @@ impl App {
                 }
             })
             .expect("Cannot start update worker");
-        tx.try_send(Work::LoadSettings(update_error))
-            .expect("Initial queue is empty");
+        if !isolated {
+            tx.try_send(Work::LoadSettings(update_error))
+                .expect("Initial queue is empty");
+        }
         Self {
             work: tx,
             results: rrx,
             network: ntx,
             net_results: erx,
-            local_busy: true,
+            local_busy: !isolated,
             net_busy: false,
             installing: false,
             restarting: false,
             settings: Settings::default(),
-            settings_ready: false,
+            settings_ready: isolated,
             settings_open: false,
             paths,
             style: Style::default(),
@@ -360,148 +393,11 @@ impl App {
             }
         }
     }
-    fn settings_ui(&mut self, ctx: &egui::Context) {
-        let mut open = self.settings_open;
-        egui::Window::new("Settings & updates").open(&mut open).default_width(530.).resizable(true).show(ctx,|ui|{
-            ui.heading("FolderIcons");ui.label(format!("Installed version: {VERSION} · Windows x64 portable"));
-            ui.label("Rendering: CPU · Windows GDI");
-            ui.small(&self.render_timing);
-            ui.hyperlink_to("Canonical repository (planned)",REPOSITORY);
-            ui.separator();
-            let response=ui.add_enabled(self.settings_ready&&!self.local_busy,egui::Checkbox::new(&mut self.settings.check_on_startup,"Check for updates on startup"));
-            if response.changed(){self.send(Work::SaveSettings(self.settings.clone()));}
-            ui.label("Startup checks run in the background. Downloads and installation require your action.");
-            if ui.add_enabled(!self.net_busy,egui::Button::new("Check for updates")).clicked(){self.check(false);}
-            ui.label(&self.update_status);
-            if let Some((done,total))=self.progress {ui.add(egui::ProgressBar::new(done as f32/total.max(1) as f32).text(format!("Downloading: {} / {} KB",done/1024,total/1024)));}
-            if let Some(update)=self.update.clone() {
-                ui.label("Installation verifies SHA-256, closes this app, replaces its EXE and restarts. Folder backups and settings are preserved.");
-                if ui.add_enabled(!self.net_busy&&!self.local_busy&&self.plans.is_empty(),egui::Button::new("Download and install")).clicked()
-                    && self.network.try_send(Network::Install(update)).is_ok() {
-                    self.net_busy=true;self.installing=true;self.update_status="Downloading and verifying update…".into();
-                }
-            }
-            ui.separator();ui.heading("Explorer integration");
-            ui.label("Optional per-user context menu. No administrator rights required. Keep the executable at its current location after enabling.");
-            ui.horizontal(|ui|{
-                if ui.add_enabled(!self.local_busy,egui::Button::new("Enable context menu")).clicked(){self.send(Work::Context(true));}
-                if ui.add_enabled(!self.local_busy,egui::Button::new("Remove context menu")).clicked(){self.send(Work::Context(false));}
-            });
-            ui.label("On Windows 11, this command may appear under Show more options. It opens FolderIcons with the selected folder; it never applies an icon automatically.");
-        });
-        self.settings_open = open;
-    }
 }
 
 impl App {
     fn logic(&mut self, ctx: &egui::Context) {
         self.receive(ctx);
-    }
-
-    fn ui(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("header").show(ctx, |ui| {
-            if self.installing || self.restarting {
-                ui.disable();
-            }
-            ui.add_space(8.);
-            ui.horizontal(|ui| {
-                ui.heading("FolderIcons");
-                ui.label("Give every folder a clear identity");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Settings & updates").clicked() {
-                        self.settings_open = true;
-                    }
-                });
-            });
-            ui.add_space(8.);
-            if let Some(update) = &self.update {
-                ui.horizontal(|ui| {
-                    ui.colored_label(
-                        egui::Color32::LIGHT_GREEN,
-                        format!("FolderIcons {} is available", update.version),
-                    );
-                    if ui.button("View update").clicked() {
-                        self.settings_open = true;
-                    }
-                });
-            }
-        });
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if self.local_busy {
-                    ui.spinner();
-                }
-                ui.label(&self.message);
-            });
-        });
-        egui::SidePanel::left("design").exact_width(292.).show(ctx,|ui|{
-            if self.installing || self.restarting {ui.disable();}
-            egui::ScrollArea::vertical().id_salt("design_scroll").show(ui,|ui|{
-            ui.heading("Design");
-            if let Some(texture)=&self.texture {ui.add(egui::Image::new(texture).fit_to_exact_size(egui::vec2(240.,240.)));}
-            else {ui.allocate_space(egui::vec2(240.,240.));}
-            if self.preview_revision!=self.revision {ui.label("Preparing live preview…");}
-            let before=self.style.clone();
-            ui.label("Original themes");
-            ui.horizontal_wrapped(|ui|{for (name,color) in render::THEMES {
-                if ui.add(egui::Button::new(name).fill(egui::Color32::from_rgb(color[0],color[1],color[2]))).clicked(){self.style.color=color;}
-            }});
-            ui.horizontal(|ui|{ui.label("Custom color");ui.color_edit_button_srgb(&mut self.style.color);});
-            egui::ComboBox::from_label("Badge").selected_text(self.style.badge.label()).show_ui(ui,|ui|{for badge in Badge::ALL {ui.selectable_value(&mut self.style.badge,badge,badge.label());}});
-            if before!=self.style {self.invalidate();}
-            ui.separator();ui.label("Photo cover · PNG or JPEG");
-            if let Some(photo)=&self.photo {ui.label(photo.file_name().unwrap_or_default().to_string_lossy());}
-            ui.horizontal(|ui|{
-                if ui.add_enabled(!self.local_busy,egui::Button::new("Choose photo…")).clicked(){self.send(Work::PickPhoto);}
-                if ui.add_enabled(self.photo.is_some(),egui::Button::new("Remove")).clicked(){self.photo=None;self.invalidate();}
-            });
-            ui.small("Photos are embedded in the generated icon. The original photo stays untouched. Each ICO includes sizes from 16 to 256 px.");
-            });
-        });
-        egui::CentralPanel::default().show(ctx,|ui|{
-            if self.installing || self.restarting {ui.disable();}
-            ui.horizontal(|ui|{ui.heading("Folders");ui.label(format!("{} / 128 selected",self.paths.len()));});
-            ui.horizontal(|ui|{
-                if ui.add_enabled(!self.local_busy,egui::Button::new("Add folders…")).clicked(){self.send(Work::PickFolders);}
-                if ui.add_enabled(!self.local_busy&&!self.paths.is_empty(),egui::Button::new("Clear list")).clicked(){self.paths.clear();self.plans.clear();self.plan_errors.clear();}
-            });
-            ui.label("Changes affect only the selected folders, without recursion.");
-            let mut remove=None;
-            egui::ScrollArea::vertical().id_salt("folders").max_height(170.).show(ui,|ui|{
-                for (index,path) in self.paths.iter().enumerate(){ui.horizontal(|ui|{if ui.add_enabled(!self.local_busy,egui::Button::new("×")).clicked(){remove=Some(index);}ui.label(path.display().to_string());});}
-            });
-            if let Some(index)=remove {self.paths.remove(index);self.plans.clear();self.plan_errors.clear();}
-            ui.separator();
-            ui.horizontal(|ui|{
-                let ready=!self.local_busy&&!self.installing&&!self.paths.is_empty();
-                if ui.add_enabled(ready&&self.ico.is_some()&&self.preview_revision==self.revision,egui::Button::new("Build Apply plan")).clicked(){self.plan_action=Action::Apply;self.send(Work::Plan(self.revision,self.paths.clone(),Action::Apply,self.ico.clone()));}
-                if ui.add_enabled(ready,egui::Button::new("Build Restore plan")).clicked(){self.plan_action=Action::Restore;self.send(Work::Plan(self.revision,self.paths.clone(),Action::Restore,None));}
-            });
-            egui::ScrollArea::vertical().id_salt("plan").show(ui,|ui|{
-                if !self.plans.is_empty() {
-                    ui.heading(match self.plan_action {Action::Apply=>"Review Apply plan",Action::Restore=>"Review Restore plan"});
-                    for plan in &self.plans {ui.group(|ui|{
-                        ui.label(plan.folder.display().to_string());
-                        match plan.action {
-                            Action::Apply=>{ui.small(if plan.had_ini {"Preserve existing settings; replace icon entries in desktop.ini."}else{"Create Unicode desktop.ini."});ui.small("Store the icon and original backup in .foldericons; mark the folder read-only for Explorer customization.");}
-                            Action::Restore=>{ui.small("Restore the original desktop.ini bytes and appearance attributes; remove owned generated icons and the backup after success.");}
-                        }
-                    });}
-                    ui.label("Each folder is independent. Errors are reported per folder; successful folders stay applied. A changed folder is skipped until a new plan is built.");
-                    let label=if self.plan_action==Action::Apply {"Apply reviewed plan"}else{"Restore reviewed plan"};
-                    ui.horizontal(|ui|{
-                        if ui.add_enabled(!self.local_busy&&!self.installing,egui::Button::new(label)).clicked(){let plans=std::mem::take(&mut self.plans);self.send(Work::Execute(plans));}
-                        if ui.button("Discard plan").clicked(){self.plans.clear();self.plan_errors.clear();}
-                    });
-                }
-                for error in &self.plan_errors {ui.colored_label(egui::Color32::LIGHT_RED,error);}
-                for result in &self.report {ui.label(result);}
-                if self.paths.is_empty() {ui.add_space(30.);ui.heading("Start with a folder");ui.label("Add one or several folders. Choose a color, badge or photo cover, then review exactly what will be written before applying.");}
-            });
-        });
-        if self.settings_open {
-            self.settings_ui(ctx);
-        }
     }
 }
 
