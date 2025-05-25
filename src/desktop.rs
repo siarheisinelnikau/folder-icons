@@ -298,19 +298,26 @@ impl Host {
         };
         let input = self.input_events - diag.baseline.6;
         let interrupted = input > 0 && matches!(diag.phase, 1 | 4);
+        let settling = !interrupted
+            && matches!(diag.phase, 1 | 4)
+            && (1..=8).contains(&(self.frames - diag.baseline.2))
+            && core_percent <= 5.;
         if interrupted {
             diag.interfered = true;
             label = "interaction_during_idle_sample";
+        } else if settling {
+            label = "settling_after_invalidation";
         }
         diag.samples.push(serde_json::json!({"state":label,"seconds":elapsed,"input_events":input,"cpu_one_core_percent":core_percent,"cpu_normalized_percent":core_percent/cpu_count as f64,"frames":self.frames-diag.baseline.2,"presents":self.presents-diag.baseline.3,"ui_raster_ms":(self.render_ns-diag.baseline.4) as f64/1e6,"present_ms":(self.present_ns-diag.baseline.5) as f64/1e6}));
         let failed = !interrupted
+            && !settling
             && matches!(diag.phase, 1 | 2 | 4)
             && (self.frames != diag.baseline.2
                 || self.presents != diag.baseline.3
                 || !core_percent.is_finite()
                 || core_percent > 5.);
-        if (diag.phase == 4 && !interrupted) || failed || now >= diag.expires {
-            let report = serde_json::json!({"pid":std::process::id(),"exe":std::env::current_exe().ok(),"version":crate::VERSION,"backend":"egui_software_backend CPU + softbuffer Win32 GDI","logical_cpus_exposed":cpu_count,"gpu_telemetry":"unavailable; Windows composition is outside the app renderer","gate_passed":!failed&&!interrupted&&diag.phase==4,"input_interference":diag.interfered,"samples":diag.samples,"repaint_causes":self.repaint_causes,"window_events":self.window_events});
+        if (diag.phase == 4 && !interrupted && !settling) || failed || now >= diag.expires {
+            let report = serde_json::json!({"pid":std::process::id(),"exe":std::env::current_exe().ok(),"version":crate::VERSION,"backend":"egui_software_backend CPU + softbuffer Win32 GDI","logical_cpus_exposed":cpu_count,"gpu_telemetry":"unavailable; Windows composition is outside the app renderer","gate_passed":!failed&&!interrupted&&!settling&&diag.phase==4,"input_interference":diag.interfered,"samples":diag.samples,"repaint_causes":self.repaint_causes,"window_events":self.window_events});
             let result = (|| -> Result<()> {
                 if let Some(parent) = diag.output.parent() {
                     std::fs::create_dir_all(parent)?;
@@ -328,7 +335,7 @@ impl Host {
             diag.next = now + std::time::Duration::from_secs(60);
             return;
         }
-        if interrupted {
+        if interrupted || settling {
             diag.baseline = (
                 now,
                 cpu,

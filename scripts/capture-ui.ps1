@@ -1,12 +1,13 @@
 param(
     [Parameter(Mandatory=$true)][string]$FixtureRoot,
     [string]$OutputDirectory,
+    [string]$ExecutablePath,
     [switch]$Diagnostics
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
-$exePath = Join-Path $projectRoot 'target/x86_64-pc-windows-msvc/release/FolderIcons.exe'
+$exePath = if ($ExecutablePath) { (Resolve-Path -LiteralPath $ExecutablePath).Path } else { Join-Path $projectRoot 'target/x86_64-pc-windows-msvc/release/FolderIcons.exe' }
 $FixtureRoot = (Resolve-Path -LiteralPath $FixtureRoot).Path
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $projectRoot '.local/visual-review' }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)

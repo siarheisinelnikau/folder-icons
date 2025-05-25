@@ -16,9 +16,17 @@
 
 ## Threads and window lifecycle
 
-The main thread runs the eframe 0.37 event-driven UI and processes compact result events. File selection, bounded rendering/image decode, plan creation, filesystem mutations, settings and optional registry changes run on one serial file worker. Network checks/downloads run on a separate serial network worker. Queues are bounded. Workers block on channel receive while idle and explicitly request a UI wake after results. Preview edits use a short debounce and generation IDs; stale render results cannot become the current Apply icon. Loading a photo is cached until the path changes/removal.
+The main thread runs egui 0.33.3 inside a custom winit 0.30 host. `egui_software_backend` 0.0.2 rasterizes on the CPU; softbuffer 0.4.8 presents through Win32 GDI. There is no eframe/glow/wgpu dependency in the active Windows application. File selection, bounded rendering/image decode, plan creation, filesystem mutations, settings and optional registry changes run on one serial file worker. Network checks/downloads run on a separate serial network worker. Queues are bounded. Workers block on channel receive while idle and explicitly request a UI wake after results. Preview edits use a short debounce and generation IDs; stale render results cannot become the current Apply icon. Loading a photo is cached until the path changes/removal.
 
-eframe 0.37 was selected from the available cached dependencies after inspecting its redraw scheduling: it avoids the `ControlFlow::Poll` path present in eframe 0.33.3. This is source-level reasoning, not an idle CPU measurement. There is no tray/hide-on-close behavior. Close is deferred during file operations or update installation so they can finish; the update worker closes the UI when its helper is ready. Results are also processed in `App::logic` when minimized. Performance, dialogs, rendering and restoration still need real-window verification.
+The host uses `Wait`/`WaitUntil`, discards stale repaint callbacks by egui pass number, clears obsolete deadlines on actual frames and deduplicates unchanged pointer positions. A retained bitmap handles OS paint requests without rebuilding the UI. Hidden/minimized windows do not lay out, rasterize or present; useful worker results and shutdown requests are still processed. No egui pass is taken while hidden, so texture updates remain available for the next visible pass. AccessKit is attached before the native window is shown. Input/accessibility/platform output, fonts, clipboard, DPI and viewport information are forwarded through egui-winit.
+
+There is no tray behavior: this is a folder styling editor, not a background monitor. Close is deferred during file operations or update installation so they can finish. After an exit request, the host returns without setting another wait deadline. This fixes the diagnostic shutdown stall observed during validation. Bounded normal-process diagnostics separately count rasterized frames, retained-buffer presents, input events, CPU time and presentation wall time. See TESTING.md for measured scope and remaining interaction gaps.
+
+## Isolated visual review
+
+`--capture OUTPUT --screen main|settings --scenario empty|populated|review|error` selects a real application screen and executes four finite offscreen passes using the production UI and CPU renderer. Width/height are logical pixels; `--scale` determines physical output size. Populated scenarios require an absolute `--fixture-root` containing disposable folders and optionally `cover.png`. Review reads actual plans without executing them. Capture bypasses normal settings loading, startup checks and background actions, writes the PNG and metadata atomically, and exits. An external 12-second timeout bounds the script invocation.
+
+`--diagnose OUTPUT [FIXTURE_ROOT]` runs a separate isolated native CPU/GDI window through visible idle, hidden, restore and return-to-idle intervals, then exits. Input-contaminated intervals are labeled and retried within a 30-second overall diagnostic budget. The external script limit is 35 seconds. A failed gate is an explicit JSON result, never inferred as success from low CPU alone. GPU/driver telemetry is unavailable; desktop composition is not disabled.
 
 ## On-folder layout
 
@@ -56,5 +64,6 @@ Atomic file replacement is not a multi-file or cross-folder transaction. Changes
 
 - [Microsoft: customizing folders with Desktop.ini](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-customize-folders-with-desktop-ini)
 - [Microsoft: SetFileAttributesW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileattributesw)
-- [eframe 0.37 native redraw implementation](https://docs.rs/crate/eframe/0.37.0/source/src/native/run.rs)
+- [egui software renderer](https://docs.rs/egui_software_backend/0.0.2/egui_software_backend/)
+- [softbuffer Win32 backend](https://docs.rs/crate/softbuffer/0.4.8/source/src/backends/win32.rs)
 - [ureq 3.5 API and timeouts](https://docs.rs/ureq/3.5.0/ureq/)

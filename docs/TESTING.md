@@ -1,8 +1,6 @@
 # Verification
 
-## Safe automated scope
-
-Run from the repository root using the existing MSVC toolchain:
+## Automated checks
 
 ```powershell
 cargo fmt --check
@@ -11,33 +9,56 @@ cargo clippy --locked --offline --all-targets -j 2 -- -D warnings
 ./scripts/package.ps1 -Offline
 ```
 
-Tests render artwork in memory, parse local release fixtures, and create disposable directories under the ignored repository-local `.test-output` for INI/attribute/journal checks. They do not launch the GUI, call the updater, contact GitHub, register Explorer integration, send shell notifications, or modify existing user folders. Package generation compiles/copies files only; it never starts the generated EXE.
+The implementation/follow-up session used Windows x64 and Rust 1.96.1. All 13 engine tests passed, formatting passed, Clippy passed with `-D warnings`, and the optimized x64 release was packaged. Cargo's incremental-cache hard-link warnings are environment-level file-copy fallbacks, not source lint failures.
 
-Implementation session (2026-10-31, Windows x64, Rust 1.96.1):
+Tests cover ICO roundtrip/all badges, photo embedding and bounded decoding, INI text/encoding handling, reapply/restore byte and attribute preservation, stale plans and external-edit rejection, pending journals, malformed manifests, external deletion/foreign-file preservation, and release/checksum parsing. Fixtures live under ignored `.test-output`. The first session encountered access-denied rename failures in the sandbox's virtualized system Temp; repository-local fixtures passed without elevation.
 
-- `cargo check --offline --locked -j 2`: passed.
-- `cargo fmt --check`: passed.
-- `cargo clippy --offline --locked --all-targets -j 2 -- -D warnings`: passed. Cargo emitted environment-level incremental hard-link fallback warnings; source lint checks passed.
-- `cargo test --offline --locked -j 2`: 13 tests passed, no failed/ignored tests. Covers ICO roundtrip and all badges, photo embedding and bounded decoding, INI text/encoding handling, reapply/restore byte and attribute preservation, stale-plan/external-edit rejection, pending-journal recovery, malformed manifest rejection, external deletion rejection and foreign-file preservation, stable release selection and malformed update payload/checksum rejection.
-- `./scripts/package.ps1 -Offline`: passed; optimized Windows x64 build, versioned EXE, checksum and third-party notices generated. The EXE was never launched.
-- SHA-256 of `dist/FolderIcons-v0.1.0.exe`: `38334576e83adf4e4c8abb2a8439b4b8f088e089e7253803932a499da8a4e21d`.
-- The package verifier inspects the x64 PE32+ Windows GUI subsystem and checks that the sidecar SHA-256 names/matches the EXE. No deployment result is inferred from byte inspection.
+Packaging never launches the normal application or updater. Its byte verifier checks x64 PE32+, the Windows GUI subsystem and the matching SHA-256 sidecar. These checks do not certify deployment or responsiveness. The final checksum is in `dist/FolderIcons-v0.1.0.exe.sha256`.
 
-The initial filesystem test run hit access-denied errors for atomic rename in the sandbox's virtualized system Temp directory. Fixtures were moved into the authorized repository-local `.test-output`; all filesystem scenarios then passed without elevation. The compiler also fell back from incremental-cache hard links to file copies in this environment. No real user folder appearance or registry settings were changed.
+## Runtime rendering diagnostics
 
-## Deferred manual acceptance checklist
+The initial OpenGL build was reported to cause severe lag. It was replaced by egui 0.33.3 → egui_software_backend 0.0.2 CPU rasterization → softbuffer 0.4.8 Win32 GDI. The active dependency tree contains no eframe/glow/glutin/wgpu renderer. The prior CPU build's PE imports included `gdi32.dll` and no direct OpenGL/DirectX graphics imports. This does not disable Windows composition or constitute GPU telemetry.
 
-Perform these later on disposable folders, with explicit permission for desktop interaction:
+The real host instruments UI/raster frames, GDI presents, their wall time, own-process CPU time, repaint causes and non-sensitive input-event counts. Diagnostics use the optimized application, isolated fixtures, no startup network/settings loading, a 30-second internal limit and a 35-second external limit. They show, hide, restore and exit only the owned test instance. No computer-use tools are required.
 
-- Launch the packaged EXE on Windows 10/11 x64 without a Rust toolchain; confirm portable/static CRT deployment and driver compatibility.
-- Verify the real layout, color controls, all badges, keyboard navigation, DPI scaling (100/150/200%), small window sizes, photo crop/transparency and both native file dialogs.
-- Capture real main-window and Settings screenshots and embed them in the README.
-- Apply to a single folder and a batch including Unicode/spaces. Check Explorer's small/large icons and thumbnails, targeted refresh and persistence after restarting the app/Explorer.
-- Apply over a preexisting UTF-16LE `desktop.ini` with localized names/InfoTip and a custom icon. Reapply, then Restore and compare exact original bytes and appearance.
-- Rename/move/copy the entire customized folder with `.foldericons` and confirm relative paths. Test access-denied, readonly, network and cloud folders without claiming support until verified.
-- Test explicit context-menu enable/remove in HKCU, Windows 11 Show more options and paths containing spaces/non-ASCII. Confirm opening a folder from the menu performs no automatic mutation. Re-enable after moving the EXE.
-- Measure idle/active CPU and UI responsiveness; minimize, restore and close while a bounded operation is active. No idle performance measurements were taken in this run.
-- Against a future published test release, verify 404/unpublished and rate-limit states, a newer stable version, prerelease exclusion, opt-out making zero startup requests, manual checking, progress, length/checksum failures and read-only installation directories.
-- Exercise the real helper handshake, replacement, restart, versioned rollback, a locked EXE, helper timeout and interrupted download. Confirm settings and on-folder backups survive. The updater was never executed in this session.
+Final packaged executable: `FolderIcons-v0.1.0.exe`, 8,363,520 bytes, SHA-256 `1500b376e8fadfc97fb9a7ef4806446944424836268bd3327a9f6c5660090974`. The final diagnostic used PID 37316 and completed with exit code 0. Twenty logical CPUs were exposed to the process. Clean measured intervals:
 
-No hardware/Explorer/GUI results are inferred from successful compilation or unit tests. Authenticode signing, publication and real release API availability remain outside this local implementation phase.
+| State | Duration | UI/raster frames | GDI presents | CPU, one logical core |
+| --- | ---: | ---: | ---: | ---: |
+| Visible, settled | 5 s | 0 | 0 | 0.0% at sampling resolution |
+| Hidden | 5 s | 0 | 0 | 0.31% |
+| Restore | 1 s | 1 | 1 | 1.56% |
+| Return to settled idle | 3 s | 0 | 0 | 0.0% at sampling resolution |
+
+The final restore rasterized in 1.01 ms and presented in 0.50 ms. One incidental pointer-interaction interval used 10.93% of one core (0.55% normalized across 20), with 479 useful frames and 298 input events over five seconds. These are local samples, not universal latency claims. Early apparent idle spikes included real pointer motion/clicks; input-contaminated samples are labeled and repeated. Small finite focus/window invalidations also require a new clean interval. Ongoing frames, sustained CPU load without input, or failure to settle within the budget fails the gate.
+
+Validation fixed an AccessKit startup panic (adapter must precede window visibility), stale repaint scheduling, unchanged duplicate pointer invalidation, and a shutdown stall caused by setting another wait after `exit`. The repaired bounded diagnostic completed successfully and exited. GPU/driver telemetry and user-perceived smoothness remain unverified. Keyboard, pointer, native dialogs and live folder workflows have not been certified by static captures.
+
+## Real client-area captures without computer use
+
+```powershell
+$fixtureRoot = ./scripts/create-visual-fixtures.ps1
+./scripts/capture-ui.ps1 -FixtureRoot $fixtureRoot
+# Optional monitored native-window test, separate from static capture:
+./scripts/capture-ui.ps1 -FixtureRoot $fixtureRoot -Diagnostics
+# Select the packaged executable explicitly:
+./scripts/capture-ui.ps1 -FixtureRoot $fixtureRoot -ExecutablePath ./dist/FolderIcons-v0.1.0.exe
+```
+
+The fixture creator refuses to claim unmarked existing directories. It creates disposable folders, a Unicode INI and an original geometric PNG. Capture mode runs the production UI and software renderer for exactly four finite passes, writes PNG/metadata files, and exits. Each child has an external 12-second timeout. It does not use computer use, native dialogs, a desktop screenshot service, normal user settings, network requests, registry registration, the updater or folder mutations. The review scenario reads real plans without executing them.
+
+Main/editor and Settings captures were opened as actual PNG files and inspected. Review corrected clipped settings content, an oversized preview hiding the photo action, duplicate review/apply emphasis and missing CJK glyphs. An 820 × 620 logical viewport at 150% scale was also inspected; the style panel scrolls rather than shrinking text. README images are 1080 × 800 logical/physical pixels at 100% scale. They capture the client surface, not native title bars, Explorer or OS dialogs.
+
+PNG and JSON files in `docs/screenshots` are real application output. Metadata records scenario, renderer and scale. CI creates isolated fixtures and captures these production screens without opening native windows.
+
+## Remaining manual acceptance
+
+- Confirm perceived smoothness and responsiveness on the user's desktop. No screenshot or CPU sample replaces that confirmation.
+- Verify keyboard traversal, accessibility actions, native folder/photo dialogs, pointer/scroll/resize behavior and actual DPI changes; the static 150% capture checks layout only.
+- Through the GUI, Apply to a disposable folder and a batch with Unicode/spaces, reapply, then Restore. Confirm Explorer refresh and exact original INI/attributes. Engine tests pass; live GUI Apply/Restore was not completed before computer use was stopped and subsequently excluded.
+- Inspect visible restore/minimize behavior and fonts/resources on the real screen. Counts verify quiet hidden operation and a restore frame, not visual correctness of every OS interaction.
+- Test Windows 10/11 clean-machine portable deployment and network/cloud/ACL scenarios. Reparse/cloud-placeholder folders are deliberately rejected.
+- Validate explicit HKCU context-menu enable/remove, Windows 11 Show more options, EXE relocation and command-line folder handoff.
+- Against a future published test release, exercise availability, disabled-startup zero-request behavior, progress, checksum errors, helper handshake, replacement, restart and rollback. The real updater has never been executed in this session.
+
+No release has been published. Authenticode signing and remote GitHub operations remain outside this local phase.
