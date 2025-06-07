@@ -394,8 +394,14 @@ impl ApplicationHandler<Event> for Host {
                         .with_visible(false)
                         .with_active(self.diagnostic.is_none())
                         .with_title("FolderIcons")
-                        .with_inner_size(winit::dpi::LogicalSize::new(1060., 740.))
-                        .with_min_inner_size(winit::dpi::LogicalSize::new(820., 620.))
+                        .with_inner_size(winit::dpi::LogicalSize::new(
+                            crate::ui::DEFAULT_SIZE[0],
+                            crate::ui::DEFAULT_SIZE[1],
+                        ))
+                        .with_min_inner_size(winit::dpi::LogicalSize::new(
+                            crate::ui::MIN_SIZE[0],
+                            crate::ui::MIN_SIZE[1],
+                        ))
                         .with_window_icon(Some(icon)),
                 )?,
             );

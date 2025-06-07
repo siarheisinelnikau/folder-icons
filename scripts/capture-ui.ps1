@@ -27,7 +27,9 @@ if ($Diagnostics) {
     $performance = Get-Content -LiteralPath $performancePath -Raw | ConvertFrom-Json
     if (-not $performance.gate_passed) { throw "Rendering gate did not pass. Inspect $performancePath before further runtime testing." }
 }
-Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'main.png'), '--screen', 'main', '--scenario', 'review', '--fixture-root', $FixtureRoot) 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'main.png'), '--screen', 'main', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000
 Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'settings.png'), '--screen', 'settings', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000
-Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'compact.png'), '--scenario', 'empty', '--width', '820', '--height', '620', '--scale', '1.5') 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'review.png'), '--scenario', 'review', '--fixture-root', $FixtureRoot) 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'empty.png'), '--scenario', 'empty') 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'compact.png'), '--scenario', 'populated', '--fixture-root', $FixtureRoot, '--width', '740', '--height', '560', '--scale', '1.5') 12000
 Write-Output "Captured production client UI to $OutputDirectory. Every child process exited."

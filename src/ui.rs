@@ -9,6 +9,8 @@ pub const MUTED: Color32 = Color32::from_rgb(91, 108, 127);
 pub const ACCENT: Color32 = Color32::from_rgb(27, 116, 105);
 pub const BORDER: Color32 = Color32::from_rgb(215, 224, 232);
 pub const CANVAS: Color32 = Color32::from_rgb(244, 247, 250);
+pub const DEFAULT_SIZE: [f64; 2] = [780., 590.];
+pub const MIN_SIZE: [f64; 2] = [740., 560.];
 
 pub fn configure(ctx: &egui::Context) {
     // Use a locally installed Windows fallback for localized folder names. No font
@@ -49,8 +51,8 @@ pub fn configure(ctx: &egui::Context) {
     style.visuals.widgets.active.bg_fill = Color32::from_rgb(212, 237, 232);
     style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1., BORDER);
     style.visuals.widgets.noninteractive.bg_fill = CANVAS;
-    style.spacing.item_spacing = Vec2::new(10., 10.);
-    style.spacing.button_padding = Vec2::new(14., 8.);
+    style.spacing.item_spacing = Vec2::new(8., 8.);
+    style.spacing.button_padding = Vec2::new(12., 7.);
     style.spacing.interact_size = Vec2::new(36., 32.);
     style.spacing.window_margin = egui::Margin::same(20);
     style.spacing.scroll = egui::style::ScrollStyle::solid();
@@ -87,14 +89,11 @@ impl App {
             .frame(
                 egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::symmetric(24, 18)),
+                    .inner_margin(egui::Margin::symmetric(16, 10)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        ui.label(RichText::new("FolderIcons").size(27.).strong());
-                        secondary(ui, "Make important folders easy to find.");
-                    });
+                    ui.label(RichText::new("FolderIcons").size(23.).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("Settings & updates").clicked() {
                             self.settings_open = true;
@@ -114,7 +113,7 @@ impl App {
             .frame(
                 egui::Frame::new()
                     .fill(Color32::WHITE)
-                    .inner_margin(egui::Margin::symmetric(24, 12)),
+                    .inner_margin(egui::Margin::symmetric(16, 8)),
             )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -123,48 +122,196 @@ impl App {
                     }
                     ui.add(
                         egui::Label::new(RichText::new(&self.message).size(13.).color(MUTED))
-                            .wrap(),
-                    );
+                            .truncate(),
+                    )
+                    .on_hover_text(&self.message);
                 });
             });
-        egui::SidePanel::left("design")
-            .exact_width(312.)
-            .resizable(false)
-            .frame(egui::Frame::new().fill(Color32::WHITE).inner_margin(20))
+        egui::CentralPanel::default()
+            .frame(egui::Frame::new().fill(CANVAS).inner_margin(16))
             .show(ctx, |ui| {
                 if self.installing || self.restarting {
                     ui.disable();
                 }
                 egui::ScrollArea::vertical()
-                    .id_salt("design-scroll")
+                    .id_salt("editor-content")
                     .show(ui, |ui| {
-                        section(ui, "Your folder style");
-                        egui::Frame::new()
-                            .fill(CANVAS)
-                            .corner_radius(12)
-                            .inner_margin(10)
-                            .show(ui, |ui| {
-                                if let Some(texture) = &self.texture {
-                                    ui.add(
-                                        egui::Image::new(texture)
-                                            .fit_to_exact_size(Vec2::splat(180.)),
-                                    );
-                                } else {
-                                    ui.allocate_space(Vec2::splat(180.));
+                        if self.plans.is_empty() {
+                            self.folder_selection_ui(ui);
+                            self.appearance_ui(ui);
+                            ui.horizontal(|ui| {
+                                let ready =
+                                    !self.local_busy && !self.installing && !self.paths.is_empty();
+                                if primary(
+                                    ui,
+                                    "Review changes",
+                                    ready
+                                        && self.ico.is_some()
+                                        && self.preview_revision == self.revision,
+                                )
+                                .clicked()
+                                {
+                                    self.plan_action = Action::Apply;
+                                    self.send(Work::Plan(
+                                        self.revision,
+                                        self.paths.clone(),
+                                        Action::Apply,
+                                        self.ico.clone(),
+                                    ));
+                                }
+                                if ui
+                                    .add_enabled(ready, egui::Button::new("Restore original…"))
+                                    .clicked()
+                                {
+                                    self.plan_action = Action::Restore;
+                                    self.send(Work::Plan(
+                                        self.revision,
+                                        self.paths.clone(),
+                                        Action::Restore,
+                                        None,
+                                    ));
                                 }
                             });
-                        ui.add_space(4.);
-                        section(ui, "Color");
+                            ui.small(
+                                RichText::new(
+                                    "Review before applying. Original appearances are backed up.",
+                                )
+                                .color(MUTED),
+                            );
+                        } else {
+                            self.review_ui(ui);
+                        }
+                        for error in &self.plan_errors {
+                            ui.colored_label(Color32::from_rgb(163, 47, 57), error);
+                        }
+                        for result in &self.report {
+                            ui.label(result);
+                        }
+                    });
+            });
+        if self.settings_open {
+            self.settings_ui(ctx);
+        }
+    }
+
+    fn folder_selection_ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            section(ui, "Folders");
+            secondary(ui, format!("{} selected", self.paths.len()));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if !self.paths.is_empty() {
+                    if ui
+                        .add_enabled(!self.local_busy, egui::Button::new("+ Add folders…"))
+                        .clicked()
+                    {
+                        self.send(Work::PickFolders);
+                    }
+                    if ui
+                        .add_enabled(!self.local_busy, egui::Button::new("Clear list"))
+                        .clicked()
+                    {
+                        self.paths.clear();
+                        self.plans.clear();
+                        self.plan_errors.clear();
+                    }
+                }
+            });
+        });
+        egui::Frame::new()
+            .fill(Color32::WHITE)
+            .stroke(Stroke::new(1., BORDER))
+            .corner_radius(8)
+            .inner_margin(12)
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                if self.paths.is_empty() {
+                    secondary(ui, "Choose one folder or a group to personalize.");
+                    if primary(ui, "+ Add folders…", !self.local_busy).clicked() {
+                        self.send(Work::PickFolders);
+                    }
+                } else {
+                    let mut remove = None;
+                    egui::ScrollArea::vertical()
+                        .id_salt("folders")
+                        .max_height(132.)
+                        .show(ui, |ui| {
+                            for (index, path) in self.paths.iter().enumerate() {
+                                if index > 0 {
+                                    ui.separator();
+                                }
+                                ui.horizontal(|ui| {
+                                    let text_width = (ui.available_width() - 42.).max(160.);
+                                    ui.vertical(|ui| {
+                                        ui.set_width(text_width);
+                                        ui.spacing_mut().item_spacing.y = 2.;
+                                        ui.add(
+                                            egui::Label::new(
+                                                RichText::new(
+                                                    path.file_name()
+                                                        .unwrap_or_default()
+                                                        .to_string_lossy(),
+                                                )
+                                                .strong(),
+                                            )
+                                            .truncate(),
+                                        );
+                                        ui.add(
+                                            egui::Label::new(
+                                                RichText::new(friendly_path(path))
+                                                    .size(12.)
+                                                    .color(MUTED),
+                                            )
+                                            .truncate(),
+                                        )
+                                        .on_hover_text(friendly_path(path));
+                                    });
+                                    if ui
+                                        .add_enabled(!self.local_busy, egui::Button::new("×"))
+                                        .on_hover_text("Remove from selection")
+                                        .clicked()
+                                    {
+                                        remove = Some(index);
+                                    }
+                                });
+                            }
+                        });
+                    if let Some(index) = remove {
+                        self.paths.remove(index);
+                        self.plans.clear();
+                        self.plan_errors.clear();
+                    }
+                }
+            });
+    }
+
+    fn appearance_ui(&mut self, ui: &mut egui::Ui) {
+        section(ui, "Appearance");
+        egui::Frame::new()
+            .fill(Color32::WHITE)
+            .stroke(Stroke::new(1., BORDER))
+            .corner_radius(8)
+            .inner_margin(14)
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    if let Some(texture) = &self.texture {
+                        ui.add(egui::Image::new(texture).fit_to_exact_size(Vec2::splat(148.)));
+                    } else {
+                        ui.allocate_space(Vec2::splat(148.));
+                    }
+                    ui.add_space(12.);
+                    ui.vertical(|ui| {
+                        ui.set_width(ui.available_width());
                         let before = self.style.clone();
                         ui.horizontal(|ui| {
+                            ui.add_sized([48., 32.], egui::Label::new("Color"));
                             for (name, color) in render::THEMES {
-                                let fill = Color32::from_rgb(color[0], color[1], color[2]);
                                 let selected = self.style.color == color;
                                 let response = ui
                                     .add_sized(
-                                        [34., 34.],
+                                        [32., 32.],
                                         egui::Button::new(if selected { "•" } else { "" })
-                                            .fill(fill)
+                                            .fill(Color32::from_rgb(color[0], color[1], color[2]))
                                             .stroke(Stroke::new(
                                                 if selected { 2. } else { 0. },
                                                 INK,
@@ -178,41 +325,34 @@ impl App {
                                     self.style.color = color;
                                 }
                             }
+                            ui.color_edit_button_srgb(&mut self.style.color)
+                                .on_hover_text("Custom color");
                         });
                         ui.horizontal(|ui| {
-                            ui.color_edit_button_srgb(&mut self.style.color);
-                            secondary(ui, "Choose a custom color");
+                            let label = ui.add_sized([48., 32.], egui::Label::new("Badge"));
+                            egui::ComboBox::from_id_salt("badge")
+                                .selected_text(self.style.badge.label())
+                                .width(140.)
+                                .show_ui(ui, |ui| {
+                                    for badge in Badge::ALL {
+                                        ui.selectable_value(
+                                            &mut self.style.badge,
+                                            badge,
+                                            badge.label(),
+                                        );
+                                    }
+                                })
+                                .response
+                                .labelled_by(label.id);
                         });
-                        ui.add_space(6.);
-                        section(ui, "Badge");
-                        for row in Badge::ALL.chunks(3) {
-                            ui.horizontal(|ui| {
-                                for badge in row {
-                                    ui.selectable_value(
-                                        &mut self.style.badge,
-                                        *badge,
-                                        badge.label(),
-                                    );
-                                }
-                            });
-                        }
                         if before != self.style {
                             self.invalidate();
                         }
-                        ui.add_space(6.);
-                        section(ui, "Photo cover");
-                        secondary(ui, "Use a PNG or JPEG from your computer.");
-                        if let Some(photo) = &self.photo {
-                            ui.add(
-                                egui::Label::new(
-                                    photo.file_name().unwrap_or_default().to_string_lossy(),
-                                )
-                                .truncate(),
-                            );
-                        }
                         ui.horizontal(|ui| {
+                            ui.add_sized([48., 32.], egui::Label::new("Cover"));
                             if ui
                                 .add_enabled(!self.local_busy, egui::Button::new("Choose photo…"))
+                                .on_hover_text("PNG or JPEG; source image stays untouched")
                                 .clicked()
                             {
                                 self.send(Work::PickPhoto);
@@ -222,88 +362,89 @@ impl App {
                                 self.invalidate();
                             }
                         });
-                        ui.small(RichText::new("Your source image stays untouched.").color(MUTED));
+                        if let Some(photo) = &self.photo {
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(
+                                        photo.file_name().unwrap_or_default().to_string_lossy(),
+                                    )
+                                    .size(12.)
+                                    .color(MUTED),
+                                )
+                                .truncate(),
+                            );
+                        }
                     });
-            });
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(CANVAS).inner_margin(24)).show(ctx,|ui|{
-            if self.installing||self.restarting {ui.disable();}
-            ui.horizontal(|ui|{
-                ui.heading("Choose your folders");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center),|ui|{secondary(ui,format!("{} selected",self.paths.len()));});
-            });
-            secondary(ui,"Select folders, customize their look, then review your changes.");
-            ui.add_space(8.);
-            ui.horizontal(|ui|{
-                if ui.add_enabled(!self.local_busy,egui::Button::new("+ Add folders…")).clicked(){self.send(Work::PickFolders);}
-                if !self.paths.is_empty()&&ui.add_enabled(!self.local_busy,egui::Button::new("Clear list")).clicked(){self.paths.clear();self.plans.clear();self.plan_errors.clear();}
-            });
-            ui.add_space(4.);
-            if self.paths.is_empty() {
-                egui::Frame::new().fill(Color32::WHITE).stroke(Stroke::new(1.,BORDER)).corner_radius(10).inner_margin(24).show(ui,|ui|{
-                    ui.set_min_width(ui.available_width());
-                    ui.add_space(18.);section(ui,"A clearer desktop starts here");
-                    secondary(ui,"Add one folder or a whole group. Only folders you select will change.");
-                    ui.add_space(16.);
-                    ui.label("1   Choose folders");ui.label("2   Pick a color, badge or cover");ui.label("3   Review and apply");
-                    ui.add_space(18.);
                 });
+            });
+    }
+
+    fn review_ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.heading(if self.plan_action == Action::Apply {
+                "Review changes"
             } else {
-                let mut remove=None;
-                egui::ScrollArea::vertical().id_salt("folders").max_height(164.).show(ui,|ui|{
-                    for (index,path) in self.paths.iter().enumerate() {
-                        egui::Frame::new().fill(Color32::WHITE).stroke(Stroke::new(1.,BORDER)).corner_radius(8).inner_margin(12).show(ui,|ui|{
-                            ui.set_min_width(ui.available_width());
-                            ui.horizontal(|ui|{
-                                ui.vertical(|ui|{
-                                    ui.set_max_width((ui.available_width()-60.).max(180.));
-                                    ui.label(RichText::new(path.file_name().unwrap_or_default().to_string_lossy()).strong());
-                                    ui.add(egui::Label::new(RichText::new(path.display().to_string()).size(12.).color(MUTED)).truncate()).on_hover_text(path.display().to_string());
-                                });
-                                if ui.add_enabled(!self.local_busy,egui::Button::new("×")).on_hover_text("Remove from selection").clicked(){remove=Some(index);}
-                            });
-                        });
-                    }
-                });
-                if let Some(index)=remove {self.paths.remove(index);self.plans.clear();self.plan_errors.clear();}
-                ui.add_space(8.);
-                if self.plans.is_empty() { ui.horizontal(|ui|{
-                    let ready=!self.local_busy&&!self.installing&&!self.paths.is_empty();
-                    if primary(ui,"Review changes",ready&&self.ico.is_some()&&self.preview_revision==self.revision).clicked(){self.plan_action=Action::Apply;self.send(Work::Plan(self.revision,self.paths.clone(),Action::Apply,self.ico.clone()));}
-                    if ui.add_enabled(ready,egui::Button::new("Restore original…")).clicked(){self.plan_action=Action::Restore;self.send(Work::Plan(self.revision,self.paths.clone(),Action::Restore,None));}
-                });
-                ui.small(RichText::new("Nothing changes until you confirm. Original appearances are backed up.").color(MUTED)); }
-            }
-            ui.add_space(12.);
-            egui::ScrollArea::vertical().id_salt("review").show(ui,|ui|{
-                if !self.plans.is_empty() {
-                    egui::Frame::new().fill(Color32::WHITE).stroke(Stroke::new(1.,BORDER)).corner_radius(10).inner_margin(18).show(ui,|ui|{
-                        section(ui,if self.plan_action==Action::Apply {"Ready to apply"}else{"Restore original appearances"});
-                        secondary(ui,format!("{} folders · Selected folders only, without recursion",self.plans.len()));
-                        for plan in &self.plans {ui.label(friendly_path(&plan.folder));}
-                        ui.collapsing("Files and recovery details",|ui|{ui.label(match self.plan_action {Action::Apply=>"Update the folder icon entries in desktop.ini, preserve other settings, and save the icon and original backup in .foldericons.",Action::Restore=>"Restore the exact original desktop.ini and appearance attributes, then remove owned icons and the backup after success."});});
-                        ui.horizontal(|ui|{
-                            if primary(ui,if self.plan_action==Action::Apply {"Apply to folders"}else{"Restore folders"},!self.local_busy&&!self.installing).clicked(){let plans=std::mem::take(&mut self.plans);self.send(Work::Execute(plans));}
-                            if ui.button("Cancel").clicked(){self.plans.clear();self.plan_errors.clear();}
-                        });
-                    });
+                "Restore originals"
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Back").clicked() {
+                    self.plans.clear();
+                    self.plan_errors.clear();
                 }
-                for error in &self.plan_errors {ui.colored_label(Color32::from_rgb(163,47,57),error);}
-                for result in &self.report {ui.label(result);}
             });
         });
-        if self.settings_open {
-            self.settings_ui(ctx);
+        if self.plans.is_empty() {
+            return;
         }
+        egui::Frame::new().fill(Color32::WHITE).stroke(Stroke::new(1.,BORDER)).corner_radius(8).inner_margin(14).show(ui,|ui| {
+            ui.set_min_width(ui.available_width());
+            ui.horizontal(|ui| {
+                if self.plan_action==Action::Apply && let Some(texture)=&self.texture {ui.add(egui::Image::new(texture).fit_to_exact_size(Vec2::splat(88.)));}
+                ui.vertical(|ui| {
+                    section(ui,if self.plan_action==Action::Apply {"Ready to apply"}else{"Restore original appearances"});
+                    secondary(ui,format!("{} folders · No subfolders affected",self.plans.len()));
+                    ui.small(if self.plan_action==Action::Apply {"Your original folder appearances are preserved."}else{"Restore the appearance saved before the first change."});
+                });
+            });
+            ui.separator();
+            egui::ScrollArea::vertical().id_salt("review-folders").max_height(200.).show(ui,|ui| {
+                for plan in &self.plans {
+                    ui.label(RichText::new(plan.folder.file_name().unwrap_or_default().to_string_lossy()).strong());
+                    ui.add(egui::Label::new(RichText::new(friendly_path(&plan.folder)).size(13.).color(MUTED)).wrap());
+                }
+            });
+            ui.collapsing("Files and recovery details",|ui| {ui.label(match self.plan_action {Action::Apply=>"Update folder icon entries in desktop.ini, preserve other settings, and save the icon and original backup in .foldericons.",Action::Restore=>"Restore the exact original desktop.ini and appearance attributes, then remove owned icons and the backup after success."});});
+        });
+        ui.horizontal(|ui| {
+            if primary(
+                ui,
+                if self.plan_action == Action::Apply {
+                    "Apply to folders"
+                } else {
+                    "Restore folders"
+                },
+                !self.local_busy && !self.installing,
+            )
+            .clicked()
+            {
+                let plans = std::mem::take(&mut self.plans);
+                self.send(Work::Execute(plans));
+            }
+            if ui.button("Cancel").clicked() {
+                self.plans.clear();
+                self.plan_errors.clear();
+            }
+        });
     }
 
     fn settings_ui(&mut self, ctx: &egui::Context) {
         let mut open = self.settings_open;
-        egui::Window::new("Settings & updates").open(&mut open).default_width(540.).default_height(520.).default_pos([360.,100.]).resizable(false).vscroll(true).show(ctx,|ui|{
-            section(ui,"FolderIcons");secondary(ui,format!("Version {VERSION} · Windows x64 · CPU rendering"));
+        egui::Window::new("Settings & updates").open(&mut open).default_width(480.).default_height(400.).max_height((ctx.content_rect().height()-160.).max(300.)).anchor(egui::Align2::CENTER_CENTER,Vec2::ZERO).resizable(false).vscroll(true).show(ctx,|ui|{
+            secondary(ui,format!("Version {VERSION} · Windows x64 · CPU rendering"));
             ui.add_space(8.);ui.separator();section(ui,"Updates");
             let toggle=ui.add_enabled(self.settings_ready&&!self.local_busy,egui::Checkbox::new(&mut self.settings.check_on_startup,"Check for updates on startup"));
             if toggle.changed(){self.send(Work::SaveSettings(self.settings.clone()));}
-            secondary(ui,"Checks run quietly. Downloading and installing always require your action.");
+            secondary(ui,"Downloads and installation need your confirmation.");
             if ui.add_enabled(!self.net_busy,egui::Button::new("Check for updates")).clicked(){self.check(false);}
             ui.label(&self.update_status);
             if let Some((done,total))=self.progress {ui.add(egui::ProgressBar::new(done as f32/total.max(1) as f32).text(format!("{} / {} KB",done/1024,total/1024)));}
@@ -312,12 +453,12 @@ impl App {
                 if primary(ui,"Download and install",!self.net_busy&&!self.local_busy&&self.plans.is_empty()).clicked()&&self.network.try_send(Network::Install(update)).is_ok(){self.net_busy=true;self.installing=true;self.update_status="Downloading and verifying update…".into();}
             }
             ui.add_space(8.);ui.separator();section(ui,"Explorer shortcut");
-            secondary(ui,"Add “Customize with FolderIcons” to a folder's right-click menu. The shortcut opens this editor; it never applies changes automatically.");
+            secondary(ui,"Open this editor from a folder’s right-click menu.");
             ui.horizontal(|ui|{
                 if ui.add_enabled(!self.local_busy,egui::Button::new("Enable context menu")).clicked(){self.send(Work::Context(true));}
                 if ui.add_enabled(!self.local_busy,egui::Button::new("Remove shortcut")).clicked(){self.send(Work::Context(false));}
             });
-            ui.small(RichText::new("Windows 11: look under Show more options. Keep the EXE in place after enabling.").color(MUTED));
+            ui.small(RichText::new("Windows 11: Show more options. Keep the EXE in place.").color(MUTED));
             ui.add_space(8.);ui.separator();
             ui.horizontal(|ui|{ui.hyperlink_to("Project repository",REPOSITORY);ui.with_layout(egui::Layout::right_to_left(egui::Align::Center),|ui|{if ui.button("Done").clicked(){self.settings_open=false;}});});
             ui.collapsing("Diagnostics",|ui|{ui.label("Renderer: CPU rasterization / Windows GDI presentation");ui.label(&self.render_timing);});

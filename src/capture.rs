@@ -69,8 +69,8 @@ pub fn run(args: &[OsString]) -> Result<()> {
     let mut screen = "main".to_owned();
     let mut scenario = "empty".to_owned();
     let mut root = None;
-    let mut width = 1080u32;
-    let mut height = 800u32;
+    let mut width = crate::ui::DEFAULT_SIZE[0] as u32;
+    let mut height = crate::ui::DEFAULT_SIZE[1] as u32;
     let mut scale = 1.0f32;
     for pair in args[1..].chunks(2) {
         ensure!(pair.len() == 2, "Capture option needs a value");
@@ -94,8 +94,8 @@ pub fn run(args: &[OsString]) -> Result<()> {
         "Unknown scenario"
     );
     ensure!(
-        (820..=1600).contains(&width)
-            && (620..=1200).contains(&height)
+        (740..=1600).contains(&width)
+            && (560..=1200).contains(&height)
             && (1.0..=2.0).contains(&scale),
         "Capture dimensions or scale out of range"
     );
