@@ -22,6 +22,8 @@ The host uses `Wait`/`WaitUntil`, discards stale repaint callbacks by egui pass 
 
 There is no tray behavior: this is a folder styling editor, not a background monitor. Close is deferred during file operations or update installation so they can finish. After an exit request, the host returns without setting another wait deadline. This fixes the diagnostic shutdown stall observed during validation. Bounded normal-process diagnostics separately count rasterized frames, retained-buffer presents, input events, CPU time and presentation wall time. See TESTING.md for measured scope and remaining interaction gaps.
 
+The default client viewport is 780 × 590 logical pixels, with a 740 × 560 minimum. Native window creation and capture defaults share the same dimensions. The editor uses a single vertical workflow with an inline preview/form; a nonempty plan selects the confirmation view without duplicating folder-selection UI. Back or Cancel clears the plan and preserves the design and selected folders. Settings is centered and constrained to the viewport.
+
 ## Isolated visual review
 
 `--capture OUTPUT --screen main|settings --scenario empty|populated|review|error` selects a real application screen and executes four finite offscreen passes using the production UI and CPU renderer. Width/height are logical pixels; `--scale` determines physical output size. Populated scenarios require an absolute `--fixture-root` containing disposable folders and optionally `cover.png`. Review reads actual plans without executing them. Capture bypasses normal settings loading, startup checks and background actions, writes the PNG and metadata atomically, and exits. An external 12-second timeout bounds the script invocation.

@@ -21,16 +21,16 @@ The initial OpenGL build was reported to cause severe lag. It was replaced by eg
 
 The real host instruments UI/raster frames, GDI presents, their wall time, own-process CPU time, repaint causes and non-sensitive input-event counts. Diagnostics use the optimized application, isolated fixtures, no startup network/settings loading, a 30-second internal limit and a 35-second external limit. They show, hide, restore and exit only the owned test instance. No computer-use tools are required.
 
-Final packaged executable: `FolderIcons-v0.1.0.exe`, 8,363,520 bytes, SHA-256 `1500b376e8fadfc97fb9a7ef4806446944424836268bd3327a9f6c5660090974`. The final diagnostic used PID 37316 and completed with exit code 0. Twenty logical CPUs were exposed to the process. Clean measured intervals:
+Final compact executable: `FolderIcons-v0.1.0.exe`, 8,413,696 bytes, SHA-256 `99f2fa8da9b6a93eabe4bf51a6f559e534784d463b94e4b5bcb8c53f7851662a`. Its packaged-binary diagnostic used PID 54820 and completed with exit code 0. Twenty logical CPUs were exposed to the process. Clean measured intervals:
 
 | State | Duration | UI/raster frames | GDI presents | CPU, one logical core |
 | --- | ---: | ---: | ---: | ---: |
 | Visible, settled | 5 s | 0 | 0 | 0.0% at sampling resolution |
-| Hidden | 5 s | 0 | 0 | 0.31% |
-| Restore | 1 s | 1 | 1 | 1.56% |
+| Hidden | 5 s | 0 | 0 | 0.0% at sampling resolution |
+| Restore | 1 s | 1 | 1 | 0.0% at sampling resolution |
 | Return to settled idle | 3 s | 0 | 0 | 0.0% at sampling resolution |
 
-The final restore rasterized in 1.01 ms and presented in 0.50 ms. One incidental pointer-interaction interval used 10.93% of one core (0.55% normalized across 20), with 479 useful frames and 298 input events over five seconds. These are local samples, not universal latency claims. Early apparent idle spikes included real pointer motion/clicks; input-contaminated samples are labeled and repeated. Small finite focus/window invalidations also require a new clean interval. Ongoing frames, sustained CPU load without input, or failure to settle within the budget fails the gate.
+The compact build rendered two startup frames in total. Restore rasterized in 0.68 ms and presented in 0.32 ms. These are local samples, not universal latency claims. Earlier apparent idle spikes included real pointer motion/clicks; input-contaminated samples are labeled and repeated. Small finite focus/window invalidations also require a new clean interval. Ongoing frames, sustained CPU load without input, or failure to settle within the budget fails the gate.
 
 Validation fixed an AccessKit startup panic (adapter must precede window visibility), stale repaint scheduling, unchanged duplicate pointer invalidation, and a shutdown stall caused by setting another wait after `exit`. The repaired bounded diagnostic completed successfully and exited. GPU/driver telemetry and user-perceived smoothness remain unverified. Keyboard, pointer, native dialogs and live folder workflows have not been certified by static captures.
 
@@ -47,7 +47,7 @@ $fixtureRoot = ./scripts/create-visual-fixtures.ps1
 
 The fixture creator refuses to claim unmarked existing directories. It creates disposable folders, a Unicode INI and an original geometric PNG. Capture mode runs the production UI and software renderer for exactly four finite passes, writes PNG/metadata files, and exits. Each child has an external 12-second timeout. It does not use computer use, native dialogs, a desktop screenshot service, normal user settings, network requests, registry registration, the updater or folder mutations. The review scenario reads real plans without executing them.
 
-Main/editor and Settings captures were opened as actual PNG files and inspected. Review corrected clipped settings content, an oversized preview hiding the photo action, duplicate review/apply emphasis and missing CJK glyphs. An 820 × 620 logical viewport at 150% scale was also inspected; the style panel scrolls rather than shrinking text. README images are 1080 × 800 logical/physical pixels at 100% scale. They capture the client surface, not native title bars, Explorer or OS dialogs.
+Main/editor, Settings, empty and confirmation captures were opened as actual PNG files and inspected. The compact follow-up removed the tall header and permanent sidebar, grouped folders into one list, and placed the preview beside appearance controls. Confirmation has its own compact state with exact paths and a Back action. Font sizes and action target sizes were preserved. A 740 × 560 logical viewport at 150% scale was also inspected; content scrolls rather than shrinking text. README images are 780 × 590 logical/physical pixels at 100% scale. They capture the client surface, not native title bars, Explorer or OS dialogs.
 
 PNG and JSON files in `docs/screenshots` are real application output. Metadata records scenario, renderer and scale. CI creates isolated fixtures and captures these production screens without opening native windows.
 

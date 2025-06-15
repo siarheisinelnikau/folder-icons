@@ -15,6 +15,7 @@ FolderIcons introduces a portable Windows folder appearance editor with original
 - Local Windows packaging script, dependency license notices and noninteractive CI.
 - A clearer light editor with larger typography, compact style controls, a single apply action in the review, and readable CJK folder names when the Windows fallback font is available.
 - CPU software rendering with GDI presentation, accessibility support and bounded client-area capture/diagnostic modes.
+- A compact 780 × 590 default window with a single folder list, horizontal appearance controls and a focused confirmation step. Text sizes and primary button sizes are preserved.
 
 ### Fixed during local validation
 

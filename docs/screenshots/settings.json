@@ -1,16 +1,16 @@
 {
   "backend": "egui_software_backend CPU; production client UI; no native chrome or presentation",
-  "elapsed_ms": 36,
+  "elapsed_ms": 29,
   "folder_mutations": false,
   "frames": 4,
   "logical_size": [
-    1080,
-    800
+    780,
+    590
   ],
   "network": false,
   "physical_size": [
-    1080,
-    800
+    780,
+    590
   ],
   "scale": 1.0,
   "scenario": "populated",
