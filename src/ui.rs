@@ -140,8 +140,10 @@ impl App {
                             self.folder_selection_ui(ui);
                             self.appearance_ui(ui);
                             ui.horizontal(|ui| {
-                                let ready =
-                                    !self.local_busy && !self.installing && !self.paths.is_empty();
+                                let ready = !self.local_busy
+                                    && !self.installing
+                                    && self.pending_paths.is_empty()
+                                    && !self.paths.is_empty();
                                 if primary(
                                     ui,
                                     "Review changes",
@@ -153,7 +155,7 @@ impl App {
                                 {
                                     self.plan_action = Action::Apply;
                                     self.send(Work::Plan(
-                                        self.revision,
+                                        self.plan_generation,
                                         self.paths.clone(),
                                         Action::Apply,
                                         self.ico.clone(),
@@ -165,7 +167,7 @@ impl App {
                                 {
                                     self.plan_action = Action::Restore;
                                     self.send(Work::Plan(
-                                        self.revision,
+                                        self.plan_generation,
                                         self.paths.clone(),
                                         Action::Restore,
                                         None,
@@ -191,6 +193,37 @@ impl App {
             });
         if self.settings_open {
             self.settings_ui(ctx);
+        }
+        if self.drop_hover {
+            let rect = ctx.content_rect().shrink(8.);
+            let painter = ctx.layer_painter(egui::LayerId::new(
+                egui::Order::Tooltip,
+                egui::Id::new("folder-drop-target"),
+            ));
+            painter.rect_filled(
+                rect,
+                10.,
+                Color32::from_rgba_unmultiplied(236, 248, 245, 248),
+            );
+            painter.rect_stroke(rect, 10., Stroke::new(2., ACCENT), egui::StrokeKind::Inside);
+            painter.text(
+                rect.center() - Vec2::new(0., 14.),
+                egui::Align2::CENTER_CENTER,
+                if self.installing || self.restarting {
+                    "Wait for installation to finish"
+                } else {
+                    "Drop folders to add them"
+                },
+                egui::FontId::proportional(24.),
+                INK,
+            );
+            painter.text(
+                rect.center() + Vec2::new(0., 22.),
+                egui::Align2::CENTER_CENTER,
+                "Folders are added to the selection. No files are moved.",
+                egui::FontId::proportional(15.),
+                MUTED,
+            );
         }
     }
 
@@ -225,7 +258,7 @@ impl App {
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 if self.paths.is_empty() {
-                    secondary(ui, "Choose one folder or a group to personalize.");
+                    secondary(ui, "Drop folders here, or choose them below.");
                     if primary(ui, "+ Add folders…", !self.local_busy).clicked() {
                         self.send(Work::PickFolders);
                     }

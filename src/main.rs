@@ -8,6 +8,7 @@ use folder_icons::{
     engine::{self, Action, FolderPlan},
     platform,
     render::{self, Style},
+    selection,
     settings::{self, Settings},
     updates,
 };
@@ -21,6 +22,7 @@ enum Work {
     LoadSettings(Option<PathBuf>),
     SaveSettings(Settings),
     PickFolders,
+    InspectPaths(Vec<PathBuf>, Vec<PathBuf>, usize),
     PickPhoto,
     Preview(u64, Style, Option<PathBuf>),
     Plan(u64, Vec<PathBuf>, Action, Option<Vec<u8>>),
@@ -31,6 +33,7 @@ enum ResultEvent {
     Settings(Settings, Option<String>, Option<String>),
     Saved,
     Paths(Vec<PathBuf>),
+    Selection(selection::Intake),
     Photo(Option<PathBuf>),
     Preview(u64, image::RgbaImage, Vec<u8>),
     Plan(u64, Vec<FolderPlan>, Vec<String>),
@@ -146,6 +149,11 @@ struct App {
     update_status: String,
     progress: Option<(u64, u64)>,
     render_timing: String,
+    pending_paths: Vec<PathBuf>,
+    pending_overflow: usize,
+    pending_since: Option<Instant>,
+    plan_generation: u64,
+    drop_hover: bool,
 }
 impl App {
     fn new(
@@ -240,6 +248,11 @@ impl App {
             update_status: "Not checked yet".into(),
             progress: None,
             render_timing: "No frame samples yet".into(),
+            pending_paths: Vec::new(),
+            pending_overflow: 0,
+            pending_since: None,
+            plan_generation: 1,
+            drop_hover: false,
         }
     }
     fn send(&mut self, job: Work) {
@@ -265,8 +278,32 @@ impl App {
         self.revision += 1;
         self.dirty_since = Some(Instant::now());
         self.ico = None;
+        self.invalidate_plan();
+    }
+    fn invalidate_plan(&mut self) {
+        self.plan_generation += 1;
         self.plans.clear();
         self.plan_errors.clear();
+    }
+    fn queue_folders(&mut self, paths: Vec<PathBuf>) {
+        self.drop_hover = false;
+        if self.installing || self.restarting {
+            self.message = "Wait for installation to finish before adding folders.".into();
+            return;
+        }
+        if paths.is_empty() {
+            return;
+        }
+        self.invalidate_plan();
+        for path in paths {
+            if self.pending_paths.len() < selection::MAX_PENDING {
+                self.pending_paths.push(path);
+            } else {
+                self.pending_overflow = self.pending_overflow.saturating_add(1);
+            }
+        }
+        self.pending_since = Some(Instant::now());
+        self.message = "Checking folders…".into();
     }
     fn receive(&mut self, ctx: &egui::Context) {
         while let Ok(event) = self.results.try_recv() {
@@ -288,13 +325,15 @@ impl App {
                 }
                 ResultEvent::Saved => self.message = "Settings saved.".into(),
                 ResultEvent::Paths(paths) => {
-                    for path in paths {
-                        if self.paths.len() < 128 && !self.paths.contains(&path) {
-                            self.paths.push(path);
-                        }
+                    self.queue_folders(paths);
+                }
+                ResultEvent::Selection(intake) => {
+                    self.message = intake.message();
+                    if !intake.folders.is_empty() {
+                        self.paths.extend(intake.folders);
+                        self.report.clear();
+                        self.invalidate_plan();
                     }
-                    self.plans.clear();
-                    self.plan_errors.clear();
                 }
                 ResultEvent::Photo(path) => {
                     if path.is_some() {
@@ -318,14 +357,15 @@ impl App {
                     }
                 }
                 ResultEvent::Plan(revision, plans, errors) => {
-                    if revision == self.revision {
+                    if revision == self.plan_generation {
                         self.plans = plans;
                         self.plan_errors = errors;
                         self.report.clear();
                         self.message =
                             "Review the exact folders below, then confirm the plan.".into();
                     } else {
-                        self.message = "Design changed while planning. Build a new plan.".into();
+                        self.message =
+                            "Selection or design changed. Review the changes again.".into();
                     }
                 }
                 ResultEvent::Executed(report) => {
@@ -339,6 +379,23 @@ impl App {
                     self.message = error;
                     self.plans.clear();
                 }
+            }
+        }
+        if !self.local_busy
+            && !self.pending_paths.is_empty()
+            && !self.installing
+            && !self.restarting
+        {
+            let elapsed = self
+                .pending_since
+                .map_or(Duration::ZERO, |since| since.elapsed());
+            if elapsed >= Duration::from_millis(80) {
+                let paths = std::mem::take(&mut self.pending_paths);
+                let overflow = std::mem::take(&mut self.pending_overflow);
+                self.pending_since = None;
+                self.send(Work::InspectPaths(paths, self.paths.clone(), overflow));
+            } else {
+                ctx.request_repaint_after(Duration::from_millis(80) - elapsed);
             }
         }
         while let Ok(event) = self.net_results.try_recv() {
@@ -446,6 +503,9 @@ fn run_work(
                 .pick_folders()
                 .unwrap_or_default(),
         ),
+        Work::InspectPaths(paths, existing, overflow) => {
+            ResultEvent::Selection(selection::inspect(&paths, &existing, overflow))
+        }
         Work::PickPhoto => ResultEvent::Photo(
             rfd::FileDialog::new()
                 .set_title("Choose photo cover")
@@ -506,4 +566,67 @@ fn run_work(
             )
         }
     })
+}
+
+#[cfg(test)]
+mod intake_tests {
+    use super::*;
+    fn root() -> tempfile::TempDir {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".test-output");
+        std::fs::create_dir_all(&path).unwrap();
+        tempfile::tempdir_in(path).unwrap()
+    }
+    fn settle(app: &mut App, ctx: &egui::Context) {
+        let until = Instant::now() + Duration::from_secs(3);
+        while app.local_busy || !app.pending_paths.is_empty() {
+            assert!(Instant::now() < until, "Folder worker did not settle");
+            app.logic(ctx);
+            std::thread::park_timeout(Duration::from_millis(5));
+        }
+    }
+    #[test]
+    fn drop_queued_during_preview_keeps_the_preview_and_deduplicates_the_next_batch() {
+        let root = root();
+        let folder = root.path().join("旅行 Project");
+        std::fs::create_dir(&folder).unwrap();
+        let ctx = egui::Context::default();
+        let mut app = App::new(ctx.clone(), vec![], None, true);
+        app.dirty_since = None;
+        app.send(Work::Preview(app.revision, app.style.clone(), None));
+        app.queue_folders(vec![folder.clone()]);
+        settle(&mut app, &ctx);
+        assert_eq!(app.paths, [std::fs::canonicalize(&folder).unwrap()]);
+        assert!(app.ico.is_some());
+        assert_eq!(app.preview_revision, app.revision);
+        app.queue_folders(vec![folder.join(".")]);
+        settle(&mut app, &ctx);
+        assert_eq!(app.paths.len(), 1);
+        assert!(app.message.contains("already selected"));
+        assert_eq!(std::fs::read_dir(folder).unwrap().count(), 0);
+    }
+    #[test]
+    fn selection_change_rejects_an_in_flight_plan_and_has_a_bounded_queue() {
+        let root = root();
+        let first = root.path().join("First");
+        let second = root.path().join("Second");
+        std::fs::create_dir(&first).unwrap();
+        std::fs::create_dir(&second).unwrap();
+        let ctx = egui::Context::default();
+        let mut app = App::new(ctx.clone(), vec![first.clone()], None, true);
+        app.dirty_since = None;
+        let ico = render::ico(&render::render(&app.style, None)).unwrap();
+        app.send(Work::Plan(
+            app.plan_generation,
+            vec![first],
+            Action::Apply,
+            Some(ico),
+        ));
+        app.queue_folders(vec![second]);
+        settle(&mut app, &ctx);
+        assert!(app.plans.is_empty());
+        assert_eq!(app.paths.len(), 2);
+        app.queue_folders(vec![root.path().join("unused"); selection::MAX_PENDING + 7]);
+        assert_eq!(app.pending_paths.len(), selection::MAX_PENDING);
+        assert_eq!(app.pending_overflow, 7);
+    }
 }

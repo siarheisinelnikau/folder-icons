@@ -2,6 +2,7 @@ pub mod engine;
 pub mod ini;
 pub mod platform;
 pub mod render;
+pub mod selection;
 pub mod settings;
 pub mod updates;
 

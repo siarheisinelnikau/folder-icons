@@ -465,6 +465,30 @@ impl ApplicationHandler<Event> for Host {
         if window.id() != id {
             return;
         }
+        // Native Explorer drops feed the bounded file worker. No disk access or
+        // folder mutation is performed by the window/input callback itself.
+        match &event {
+            WindowEvent::HoveredFile(_) => {
+                if !self.app.drop_hover {
+                    self.app.drop_hover = true;
+                    self.wake(el);
+                }
+                return;
+            }
+            WindowEvent::HoveredFileCancelled => {
+                if self.app.drop_hover {
+                    self.app.drop_hover = false;
+                    self.wake(el);
+                }
+                return;
+            }
+            WindowEvent::DroppedFile(path) => {
+                self.app.queue_folders(vec![path.clone()]);
+                self.wake(el);
+                return;
+            }
+            _ => {}
+        }
         match &event {
             WindowEvent::CursorMoved { position, .. } => {
                 if self.last_cursor == Some(*position) {
