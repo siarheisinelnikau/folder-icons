@@ -31,5 +31,9 @@ Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'main.png'), '
 Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'settings.png'), '--screen', 'settings', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000
 Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'review.png'), '--scenario', 'review', '--fixture-root', $FixtureRoot) 12000
 Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'empty.png'), '--scenario', 'empty') 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'drop.png'), '--scenario', 'drop') 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'symbols.png'), '--screen', 'symbols', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'symbols-organization.png'), '--screen', 'symbols-organization', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000
+Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'symbols-status.png'), '--screen', 'symbols-status', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000
 Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'compact.png'), '--scenario', 'populated', '--fixture-root', $FixtureRoot, '--width', '740', '--height', '560', '--scale', '1.5') 12000
 Write-Output "Captured production client UI to $OutputDirectory. Every child process exited."

@@ -194,6 +194,9 @@ impl App {
         if self.settings_open {
             self.settings_ui(ctx);
         }
+        if self.symbol_picker {
+            self.symbol_picker_ui(ctx);
+        }
         if self.drop_hover {
             let rect = ctx.content_rect().shrink(8.);
             let painter = ctx.layer_painter(egui::LayerId::new(
@@ -362,21 +365,19 @@ impl App {
                                 .on_hover_text("Custom color");
                         });
                         ui.horizontal(|ui| {
-                            let label = ui.add_sized([48., 32.], egui::Label::new("Badge"));
-                            egui::ComboBox::from_id_salt("badge")
-                                .selected_text(self.style.badge.label())
-                                .width(140.)
-                                .show_ui(ui, |ui| {
-                                    for badge in Badge::ALL {
-                                        ui.selectable_value(
-                                            &mut self.style.badge,
-                                            badge,
-                                            badge.label(),
-                                        );
-                                    }
-                                })
-                                .response
-                                .labelled_by(label.id);
+                            let label = ui.add_sized([48., 32.], egui::Label::new("Symbol"));
+                            let text = if self.style.badge == Badge::None {
+                                "Choose symbol…".into()
+                            } else {
+                                format!("{}…", self.style.badge.label())
+                            };
+                            if ui
+                                .add_sized([150., 32.], egui::Button::new(text))
+                                .labelled_by(label.id)
+                                .clicked()
+                            {
+                                self.symbol_picker = true;
+                            }
                         });
                         if before != self.style {
                             self.invalidate();
@@ -497,6 +498,81 @@ impl App {
             ui.collapsing("Diagnostics",|ui|{ui.label("Renderer: CPU rasterization / Windows GDI presentation");ui.label(&self.render_timing);});
         });
         self.settings_open = self.settings_open && open;
+    }
+
+    fn symbol_picker_ui(&mut self, ctx: &egui::Context) {
+        let mut open = self.symbol_picker;
+        egui::Window::new("Folder symbols")
+            .open(&mut open)
+            .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+            .fixed_size(Vec2::new(
+                464.,
+                if self.symbol_category == 1 {
+                    296.
+                } else {
+                    230.
+                },
+            ))
+            .resizable(false)
+            .vscroll(true)
+            .max_height((ctx.content_rect().height() - 140.).max(260.))
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    for (index, (name, _)) in Badge::GROUPS.iter().enumerate() {
+                        ui.selectable_value(&mut self.symbol_category, index, *name);
+                    }
+                });
+                ui.add_space(4.);
+                if self.symbols.is_empty() {
+                    ui.spinner();
+                    secondary(ui, "Preparing original symbols…");
+                } else {
+                    egui::Grid::new(("symbol-choices", self.symbol_category))
+                        .spacing([8., 8.])
+                        .show(ui, |ui| {
+                            for (index, badge) in
+                                Badge::GROUPS[self.symbol_category].1.iter().enumerate()
+                            {
+                                if let Some((_, texture)) =
+                                    self.symbols.iter().find(|(b, _)| b == badge)
+                                {
+                                    let image = egui::Image::new(texture)
+                                        .fit_to_exact_size(Vec2::splat(36.));
+                                    if ui
+                                        .add_sized(
+                                            [140., 58.],
+                                            egui::Button::image_and_text(image, badge.label())
+                                                .selected(self.style.badge == *badge)
+                                                .image_tint_follows_text_color(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.style.badge = *badge;
+                                        self.invalidate();
+                                        self.symbol_picker = false;
+                                    }
+                                }
+                                if index % 3 == 2 {
+                                    ui.end_row();
+                                }
+                            }
+                        });
+                }
+                ui.separator();
+                ui.horizontal(|ui| {
+                    if ui.button("No symbol").clicked() {
+                        self.style.badge = Badge::None;
+                        self.invalidate();
+                        self.symbol_picker = false;
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Done").clicked() {
+                            self.symbol_picker = false;
+                        }
+                    });
+                });
+            });
+        self.symbol_picker = self.symbol_picker && open;
     }
 }
 

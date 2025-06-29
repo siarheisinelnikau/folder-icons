@@ -23,6 +23,7 @@ enum Work {
     SaveSettings(Settings),
     PickFolders,
     InspectPaths(Vec<PathBuf>, Vec<PathBuf>, usize),
+    SymbolCatalog,
     PickPhoto,
     Preview(u64, Style, Option<PathBuf>),
     Plan(u64, Vec<PathBuf>, Action, Option<Vec<u8>>),
@@ -34,6 +35,7 @@ enum ResultEvent {
     Saved,
     Paths(Vec<PathBuf>),
     Selection(selection::Intake),
+    Symbols(Vec<(render::Badge, image::RgbaImage)>),
     Photo(Option<PathBuf>),
     Preview(u64, image::RgbaImage, Vec<u8>),
     Plan(u64, Vec<FolderPlan>, Vec<String>),
@@ -154,6 +156,9 @@ struct App {
     pending_since: Option<Instant>,
     plan_generation: u64,
     drop_hover: bool,
+    symbol_picker: bool,
+    symbol_category: usize,
+    symbols: Vec<(render::Badge, egui::TextureHandle)>,
 }
 impl App {
     fn new(
@@ -253,6 +258,9 @@ impl App {
             pending_since: None,
             plan_generation: 1,
             drop_hover: false,
+            symbol_picker: false,
+            symbol_category: 0,
+            symbols: Vec::new(),
         }
     }
     fn send(&mut self, job: Work) {
@@ -263,9 +271,15 @@ impl App {
             self.plans.clear();
             self.plan_errors.clear();
         }
+        let catalog = matches!(&job, Work::SymbolCatalog);
         match self.work.try_send(job) {
             Ok(()) => self.local_busy = true,
-            Err(e) => self.message = format!("Worker unavailable: {e}"),
+            Err(e) => {
+                if catalog {
+                    self.symbol_picker = false;
+                }
+                self.message = format!("Worker unavailable: {e}");
+            }
         }
     }
     fn check(&mut self, startup: bool) {
@@ -294,6 +308,8 @@ impl App {
         if paths.is_empty() {
             return;
         }
+        self.settings_open = false;
+        self.symbol_picker = false;
         self.invalidate_plan();
         for path in paths {
             if self.pending_paths.len() < selection::MAX_PENDING {
@@ -335,6 +351,7 @@ impl App {
                         self.invalidate_plan();
                     }
                 }
+                ResultEvent::Symbols(images) => self.install_symbols(ctx, images),
                 ResultEvent::Photo(path) => {
                     if path.is_some() {
                         self.photo = path;
@@ -434,6 +451,14 @@ impl App {
             }
         }
         if !self.local_busy
+            && self.symbol_picker
+            && self.symbols.is_empty()
+            && !self.installing
+            && !self.restarting
+        {
+            self.send(Work::SymbolCatalog);
+        }
+        if !self.local_busy
             && !self.installing
             && !self.restarting
             && let Some(since) = self.dirty_since
@@ -448,6 +473,44 @@ impl App {
             } else {
                 ctx.request_repaint_after(Duration::from_millis(160) - since.elapsed());
             }
+        }
+    }
+    fn install_symbols(
+        &mut self,
+        ctx: &egui::Context,
+        images: Vec<(render::Badge, image::RgbaImage)>,
+    ) {
+        self.symbols = images
+            .into_iter()
+            .map(|(badge, img)| {
+                let texture = ctx.load_texture(
+                    format!("symbol-{badge:?}"),
+                    egui::ColorImage::from_rgba_unmultiplied(
+                        [img.width() as usize, img.height() as usize],
+                        img.as_raw(),
+                    ),
+                    egui::TextureOptions::LINEAR,
+                );
+                (badge, texture)
+            })
+            .collect();
+    }
+    fn next_work_deadline(&self) -> Option<Instant> {
+        if self.local_busy || self.installing || self.restarting {
+            return None;
+        }
+        let intake = if self.pending_paths.is_empty() {
+            None
+        } else {
+            self.pending_since.map(|t| t + Duration::from_millis(80))
+        };
+        let preview = self.dirty_since.map(|t| t + Duration::from_millis(160));
+        if self.symbol_picker && self.symbols.is_empty() {
+            return Some(Instant::now());
+        }
+        match (intake, preview) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
         }
     }
 }
@@ -506,6 +569,7 @@ fn run_work(
         Work::InspectPaths(paths, existing, overflow) => {
             ResultEvent::Selection(selection::inspect(&paths, &existing, overflow))
         }
+        Work::SymbolCatalog => ResultEvent::Symbols(render::symbol_catalog()),
         Work::PickPhoto => ResultEvent::Photo(
             rfd::FileDialog::new()
                 .set_title("Choose photo cover")
@@ -628,5 +692,20 @@ mod intake_tests {
         app.queue_folders(vec![root.path().join("unused"); selection::MAX_PENDING + 7]);
         assert_eq!(app.pending_paths.len(), selection::MAX_PENDING);
         assert_eq!(app.pending_overflow, 7);
+    }
+    #[test]
+    fn symbol_catalog_loads_on_the_worker_then_stops_scheduling_work() {
+        let ctx = egui::Context::default();
+        let mut app = App::new(ctx.clone(), vec![], None, true);
+        app.dirty_since = None;
+        app.symbol_picker = true;
+        assert!(app.next_work_deadline().is_some());
+        app.logic(&ctx);
+        settle(&mut app, &ctx);
+        assert_eq!(app.symbols.len(), 17);
+        assert!(app.symbols.iter().any(|(b, _)| *b == render::Badge::Code));
+        assert!(app.next_work_deadline().is_none());
+        app.logic(&ctx);
+        assert!(!app.local_busy);
     }
 }

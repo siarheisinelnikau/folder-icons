@@ -18,15 +18,68 @@ pub enum Badge {
     Heart,
     Work,
     Alert,
+    Document,
+    Photo,
+    Music,
+    Video,
+    Code,
+    Game,
+    Download,
+    Archive,
+    Finance,
+    Study,
+    Travel,
+    Lock,
 }
 impl Badge {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 18] = [
         Self::None,
         Self::Star,
         Self::Check,
         Self::Heart,
         Self::Work,
         Self::Alert,
+        Self::Document,
+        Self::Photo,
+        Self::Music,
+        Self::Video,
+        Self::Code,
+        Self::Game,
+        Self::Download,
+        Self::Archive,
+        Self::Finance,
+        Self::Study,
+        Self::Travel,
+        Self::Lock,
+    ];
+    pub const GROUPS: [(&'static str, &'static [Self]); 3] = [
+        (
+            "Content",
+            &[
+                Self::Document,
+                Self::Photo,
+                Self::Music,
+                Self::Video,
+                Self::Code,
+                Self::Game,
+            ],
+        ),
+        (
+            "Organization",
+            &[
+                Self::Work,
+                Self::Download,
+                Self::Archive,
+                Self::Finance,
+                Self::Study,
+                Self::Travel,
+                Self::Lock,
+            ],
+        ),
+        (
+            "Status",
+            &[Self::Star, Self::Check, Self::Heart, Self::Alert],
+        ),
     ];
     pub fn label(self) -> &'static str {
         match self {
@@ -36,6 +89,18 @@ impl Badge {
             Self::Heart => "Favorite",
             Self::Work => "Work",
             Self::Alert => "Priority",
+            Self::Document => "Documents",
+            Self::Photo => "Photos",
+            Self::Music => "Music",
+            Self::Video => "Videos",
+            Self::Code => "Code",
+            Self::Game => "Games",
+            Self::Download => "Downloads",
+            Self::Archive => "Archive",
+            Self::Finance => "Finance",
+            Self::Study => "Study",
+            Self::Travel => "Travel",
+            Self::Lock => "Lock",
         }
     }
 }
@@ -101,6 +166,11 @@ fn line(x: f32, y: f32, a: [f32; 2], b: [f32; 2], width: f32) -> bool {
     (x - a[0] - t * dx).powi(2) + (y - a[1] - t * dy).powi(2) < width * width
 }
 fn symbol(badge: Badge, x: f32, y: f32) -> bool {
+    let stroke = |a, b| line(x, y, a, b, 2.2);
+    let ring = |r: f32| {
+        let d = x * x + y * y;
+        d < r * r && d > (r - 2.4).powi(2)
+    };
     match badge {
         Badge::None => false,
         Badge::Check => {
@@ -126,7 +196,177 @@ fn symbol(badge: Badge, x: f32, y: f32) -> bool {
                 - std::f32::consts::PI / 5.;
             radius < 10. / (theta.abs() + 0.35)
         }
+        Badge::Document => {
+            outline(x, y, [-13., -18., 13., 18.], 2., 2.2)
+                || stroke([-7., -5.], [7., -5.])
+                || stroke([-7., 2.], [7., 2.])
+                || stroke([-7., 9.], [3., 9.])
+        }
+        Badge::Photo => {
+            outline(x, y, [-18., -13., 18., 13.], 2., 2.2)
+                || (x + 8.).powi(2) + (y + 5.).powi(2) < 9.
+                || polygon(
+                    x,
+                    y,
+                    &[[-14., 9.], [-3., -3.], [3., 4.], [9., -2.], [15., 9.]],
+                )
+        }
+        Badge::Music => {
+            stroke([0., -15.], [0., 9.])
+                || stroke([0., -15.], [13., -10.])
+                || ((x + 5.) / 6.).powi(2) + ((y - 10.) / 4.).powi(2) < 1.
+        }
+        Badge::Video => {
+            outline(x, y, [-18., -13., 18., 13.], 3., 2.2)
+                || polygon(x, y, &[[-5., -8.], [-5., 8.], [9., 0.]])
+        }
+        Badge::Code => {
+            stroke([-7., -11.], [-17., 0.])
+                || stroke([-17., 0.], [-7., 11.])
+                || stroke([7., -11.], [17., 0.])
+                || stroke([17., 0.], [7., 11.])
+                || stroke([3., -13.], [-3., 13.])
+        }
+        Badge::Game => {
+            outline(x, y, [-19., -10., 19., 13.], 6., 2.2)
+                || stroke([-14., 1.], [-4., 1.])
+                || stroke([-9., -4.], [-9., 6.])
+                || (x - 9.).powi(2) + (y + 3.).powi(2) < 5.
+                || (x - 13.).powi(2) + (y - 3.).powi(2) < 5.
+        }
+        Badge::Download => {
+            stroke([0., -16.], [0., 5.])
+                || stroke([-8., -3.], [0., 5.])
+                || stroke([0., 5.], [8., -3.])
+                || stroke([-16., 8.], [-16., 16.])
+                || stroke([-16., 16.], [16., 16.])
+                || stroke([16., 16.], [16., 8.])
+        }
+        Badge::Archive => {
+            outline(x, y, [-15., -10., 15., 17.], 2., 2.2)
+                || outline(x, y, [-18., -17., 18., -8.], 2., 2.2)
+                || stroke([-5., -1.], [5., -1.])
+        }
+        Badge::Finance => {
+            ring(19.)
+                || stroke([-6., -8.], [7., -8.])
+                || stroke([-6., -8.], [-6., 0.])
+                || stroke([-6., 0.], [6., 0.])
+                || stroke([6., 0.], [6., 8.])
+                || stroke([6., 8.], [-7., 8.])
+                || stroke([0., -13.], [0., 13.])
+        }
+        Badge::Study => {
+            stroke([-17., -15.], [0., -10.])
+                || stroke([0., -10.], [17., -15.])
+                || stroke([-17., -15.], [-17., 12.])
+                || stroke([17., -15.], [17., 12.])
+                || stroke([-17., 12.], [0., 17.])
+                || stroke([0., 17.], [17., 12.])
+                || stroke([0., -10.], [0., 17.])
+                || stroke([-12., -6.], [-5., -4.])
+                || stroke([5., -4.], [12., -6.])
+        }
+        Badge::Travel => polygon(
+            x,
+            y,
+            &[
+                [0., -20.],
+                [4., -4.],
+                [18., 4.],
+                [18., 8.],
+                [4., 3.],
+                [4., 13.],
+                [9., 17.],
+                [9., 20.],
+                [0., 16.],
+                [-9., 20.],
+                [-9., 17.],
+                [-4., 13.],
+                [-4., 3.],
+                [-18., 8.],
+                [-18., 4.],
+                [-4., -4.],
+            ],
+        ),
+        Badge::Lock => {
+            let body = inside_round(x, y, [-13., -1., 13., 17.], 3.)
+                && !(x * x + (y - 6.).powi(2) < 7. || line(x, y, [0., 8.], [0., 12.], 1.4));
+            body || (y < 1. && outline(x, y, [-10., -18., 10., 8.], 9., 3.))
+        }
     }
+}
+
+fn outline(x: f32, y: f32, r: [f32; 4], radius: f32, width: f32) -> bool {
+    inside_round(x, y, r, radius)
+        && !inside_round(
+            x,
+            y,
+            [r[0] + width, r[1] + width, r[2] - width, r[3] - width],
+            (radius - width).max(0.5),
+        )
+}
+fn polygon(x: f32, y: f32, points: &[[f32; 2]]) -> bool {
+    let mut inside = false;
+    let mut previous = points[points.len() - 1];
+    for &point in points {
+        if (point[1] > y) != (previous[1] > y)
+            && x < (previous[0] - point[0]) * (y - point[1]) / (previous[1] - point[1]) + point[0]
+        {
+            inside = !inside;
+        }
+        previous = point;
+    }
+    inside
+}
+fn badge_pixel(badge: Badge, x: f32, y: f32, step: f32) -> [u8; 4] {
+    if badge == Badge::None {
+        return [0; 4];
+    }
+    let mut sums = [0u32; 3];
+    let mut covered = 0;
+    for dx in [-0.25, 0.25] {
+        for dy in [-0.25, 0.25] {
+            let (x, y) = (x + dx * step, y + dy * step);
+            let distance = x * x + y * y;
+            if distance > 35. * 35. {
+                continue;
+            }
+            let rgb = if distance > 30. * 30. || symbol(badge, x, y) {
+                [255, 255, 255]
+            } else {
+                [29, 42, 62]
+            };
+            for i in 0..3 {
+                sums[i] += rgb[i];
+            }
+            covered += 1;
+        }
+    }
+    let divisor = covered.max(1);
+    [
+        (sums[0] / divisor) as u8,
+        (sums[1] / divisor) as u8,
+        (sums[2] / divisor) as u8,
+        (covered * 255 / 4) as u8,
+    ]
+}
+pub fn symbol_catalog() -> Vec<(Badge, RgbaImage)> {
+    Badge::ALL
+        .into_iter()
+        .filter(|b| *b != Badge::None)
+        .map(|badge| {
+            let image = RgbaImage::from_fn(64, 64, |x, y| {
+                Rgba(badge_pixel(
+                    badge,
+                    (x as f32 + 0.5) * 76. / 64. - 38.,
+                    (y as f32 + 0.5) * 76. / 64. - 38.,
+                    76. / 64.,
+                ))
+            });
+            (badge, image)
+        })
+        .collect()
 }
 
 pub fn render(style: &Style, photo: Option<&RgbaImage>) -> RgbaImage {
@@ -168,18 +408,20 @@ pub fn render(style: &Style, photo: Option<&RgbaImage>) -> RgbaImage {
                 }
             }
         }
-        if style.badge != Badge::None {
+        if style.badge != Badge::None && (169. ..=241.).contains(&x) && (159. ..=231.).contains(&y)
+        {
             let bx = x - 205.;
             let by = y - 195.;
-            if bx * bx + by * by < 35. * 35. {
-                rgba = [255, 255, 255, 255];
+            let source = badge_pixel(style.badge, bx, by, 1.);
+            let alpha = source[3] as u32;
+            let out_alpha = alpha + rgba[3] as u32 * (255 - alpha) / 255;
+            let divisor = out_alpha.max(1);
+            for i in 0..3 {
+                rgba[i] = ((source[i] as u32 * alpha
+                    + rgba[i] as u32 * rgba[3] as u32 * (255 - alpha) / 255)
+                    / divisor) as u8;
             }
-            if bx * bx + by * by < 30. * 30. {
-                rgba = [29, 42, 62, 255];
-            }
-            if symbol(style.badge, bx, by) {
-                rgba = [255, 255, 255, 255];
-            }
+            rgba[3] = out_alpha as u8;
         }
         *p = Rgba(rgba);
     }
@@ -216,6 +458,7 @@ mod tests {
     use super::*;
     #[test]
     fn valid_multisize_ico_and_original_artwork() {
+        let mut unique = std::collections::HashSet::new();
         let plain = render(&Style::default(), None);
         assert_eq!(plain.get_pixel(0, 0)[3], 0);
         for badge in Badge::ALL {
@@ -227,6 +470,10 @@ mod tests {
                 None,
             );
             let bytes = ico(&img).unwrap();
+            assert!(
+                unique.insert(crate::digest(img.as_raw())),
+                "Duplicate symbol artwork: {badge:?}"
+            );
             assert_eq!(&bytes[..6], &[0, 0, 1, 0, 7, 0]);
             assert_eq!(
                 image::load_from_memory_with_format(&bytes, image::ImageFormat::Ico)

@@ -570,8 +570,19 @@ impl ApplicationHandler<Event> for Host {
             self.deadline = None;
             self.wake(el);
         }
+        if self
+            .app
+            .next_work_deadline()
+            .is_some_and(|deadline| deadline <= Instant::now())
+        {
+            self.wake(el);
+        }
         // Never leave the loop polling when no repaint deadline remains.
         let next = match (self.deadline, self.diagnostic.as_ref().map(|d| d.next)) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        };
+        let next = match (next, self.app.next_work_deadline()) {
             (Some(a), Some(b)) => Some(a.min(b)),
             (a, b) => a.or(b),
         };

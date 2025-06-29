@@ -121,7 +121,11 @@ mod tests {
         let dir = fixture();
         let folder = dir.path().join("Project");
         std::fs::create_dir(&folder).unwrap();
-        let result = inspect(&[folder.clone(), folder.join(".")], &[folder.clone()], 0);
+        let result = inspect(
+            &[folder.clone(), folder.join(".")],
+            std::slice::from_ref(&folder),
+            0,
+        );
         assert!(result.folders.is_empty());
         assert_eq!(result.duplicates, 2);
         #[cfg(windows)]
@@ -138,7 +142,7 @@ mod tests {
         let existing: Vec<_> = (0..MAX_FOLDERS)
             .map(|i| dir.path().join(format!("Existing{i}")))
             .collect();
-        let result = inspect(&[folder.clone()], &existing, 3);
+        let result = inspect(std::slice::from_ref(&folder), &existing, 3);
         assert_eq!(result.overflow, 4);
         assert!(result.folders.is_empty());
         assert!(folder.is_dir());

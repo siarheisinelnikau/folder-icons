@@ -10,7 +10,7 @@ use std::{
 };
 
 pub fn fixture(ctx: egui::Context, root: Option<&Path>, scenario: &str) -> Result<App> {
-    let paths = if scenario == "empty" {
+    let paths = if scenario == "empty" || scenario == "drop" {
         Vec::new()
     } else {
         let root = root.context("Populated capture requires --fixture-root")?;
@@ -27,7 +27,7 @@ pub fn fixture(ctx: egui::Context, root: Option<&Path>, scenario: &str) -> Resul
     };
     let mut app = App::new(ctx.clone(), paths, None, true);
     app.style.color = render::THEMES[1].1;
-    app.style.badge = render::Badge::Star;
+    app.style.badge = render::Badge::Photo;
     let photo_path = root
         .map(|root| root.join("cover.png"))
         .filter(|p| p.is_file());
@@ -45,6 +45,7 @@ pub fn fixture(ctx: egui::Context, root: Option<&Path>, scenario: &str) -> Resul
     app.photo = photo_path;
     app.preview_revision = app.revision;
     app.dirty_since = None;
+    app.drop_hover = scenario == "drop";
     if scenario == "review" {
         for (_, plan) in
             crate::engine::batch_plan(&app.paths, crate::Action::Apply, app.ico.as_deref())
@@ -86,11 +87,18 @@ pub fn run(args: &[OsString]) -> Result<()> {
         }
     }
     ensure!(
-        ["main", "settings"].contains(&screen.as_str()),
+        [
+            "main",
+            "settings",
+            "symbols",
+            "symbols-organization",
+            "symbols-status"
+        ]
+        .contains(&screen.as_str()),
         "Unknown screen"
     );
     ensure!(
-        ["empty", "populated", "review", "error"].contains(&scenario.as_str()),
+        ["empty", "populated", "review", "error", "drop"].contains(&scenario.as_str()),
         "Unknown scenario"
     );
     ensure!(
@@ -103,6 +111,15 @@ pub fn run(args: &[OsString]) -> Result<()> {
     let ctx = egui::Context::default();
     let mut app = fixture(ctx.clone(), root.as_deref(), &scenario)?;
     app.settings_open = screen == "settings";
+    if screen.starts_with("symbols") {
+        app.symbol_picker = true;
+        app.symbol_category = match screen.as_str() {
+            "symbols-organization" => 1,
+            "symbols-status" => 2,
+            _ => 0,
+        };
+        app.install_symbols(&ctx, render::symbol_catalog());
+    }
     let physical_width = (width as f32 * scale).round() as usize;
     let physical_height = (height as f32 * scale).round() as usize;
     let mut pixels = vec![[0u8; 4]; physical_width * physical_height];
