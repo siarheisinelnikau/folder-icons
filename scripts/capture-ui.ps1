@@ -23,8 +23,12 @@ function Invoke-OwnedDiagnostic([string[]]$AppArguments, [int]$TimeoutMillisecon
 }
 if ($Diagnostics) {
     $performancePath = Join-Path $OutputDirectory 'performance.json'
-    Invoke-OwnedDiagnostic @('--diagnose', $performancePath, $FixtureRoot) 35000
-    $performance = Get-Content -LiteralPath $performancePath -Raw | ConvertFrom-Json
+    $pendingPerformancePath = Join-Path $OutputDirectory ("performance-$([guid]::NewGuid().ToString('N')).json")
+    Invoke-OwnedDiagnostic @('--diagnose', $pendingPerformancePath, $FixtureRoot) 35000
+    if (-not (Test-Path -LiteralPath $pendingPerformancePath)) { throw 'Diagnostic exited without a fresh report; rendering gate remains unverified.' }
+    $performance = Get-Content -LiteralPath $pendingPerformancePath -Raw | ConvertFrom-Json
+    Copy-Item -LiteralPath $pendingPerformancePath -Destination $performancePath -Force
+    Remove-Item -LiteralPath $pendingPerformancePath
     if (-not $performance.gate_passed) { throw "Rendering gate did not pass. Inspect $performancePath before further runtime testing." }
 }
 Invoke-OwnedDiagnostic @('--capture', (Join-Path $OutputDirectory 'main.png'), '--screen', 'main', '--scenario', 'populated', '--fixture-root', $FixtureRoot) 12000

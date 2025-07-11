@@ -8,6 +8,8 @@
 
 `engine` has no dialogs, registry writes, network calls or shell notifications. Plan creation reads bounded files and captures the canonical folder path, current INI bytes/attributes, folder attributes and current recovery manifest. Execution takes a per-folder exclusive create-new lock, rechecks those snapshots, and refuses a stale plan. Plans are not persisted between app launches. The UI accepts at most 128 selected folders.
 
+`selection` provides read-only intake shared by native drops and the picker. It canonicalizes regular directory paths, rejects unsafe/reparse/file/root inputs, deduplicates Windows paths case-insensitively and reports selection/batch limits. The window callback only queues paths; metadata I/O stays on the serial file worker. The 256-item pending queue coalesces native per-file drop events for 80 ms and runs after an existing job completes. No files are copied/moved and no Apply is triggered by intake.
+
 `platform` isolates UTF-16 Win32 paths, file attributes, atomic same-directory replacement, targeted shell notifications and opt-in HKCU context menu registration. The engine's tests modify attributes only on disposable fixture folders. They never notify Explorer or register the context menu. Read-only core planning/rendering logic is portable; applying appearance is supported only through the Windows application.
 
 `settings` writes the startup preference atomically outside the installation directory. Missing settings use startup checks enabled. Malformed/unreadable settings disable automatic requests for the session and show a diagnostic rather than discarding the persisted preference silently.
@@ -24,9 +26,15 @@ There is no tray behavior: this is a folder styling editor, not a background mon
 
 The default client viewport is 780 × 590 logical pixels, with a 740 × 560 minimum. Native window creation and capture defaults share the same dimensions. The editor uses a single vertical workflow with an inline preview/form; a nonempty plan selects the confirmation view without duplicating folder-selection UI. Back or Cancel clears the plan and preserves the design and selected folders. Settings is centered and constrained to the viewport.
 
+Winit's pinned Windows backend enables OLE drag/drop by default. `HoveredFile`, `HoveredFileCancelled` and `DroppedFile` are handled directly by the host, without double-processing egui's copied drop payload. Hover redraws only when its state changes. A separate plan generation prevents a late plan from reappearing after a queued drop; preview revisions remain independent. Pending intake/preview deadlines also participate directly in `WaitUntil`, so processing cannot depend on another pointer event after a drop.
+
+The 17 symbols use original analytic geometry, four-sample edge antialiasing and one shared badge renderer for ICO output and the visual catalog. Catalog thumbnails are generated once on the file worker and cached as textures; opening the picker after loading does not schedule more work. The picker groups Content, Organization and Status instead of an unstructured emoji list. Existing serialized badge identifiers are retained.
+
 ## Isolated visual review
 
 `--capture OUTPUT --screen main|settings --scenario empty|populated|review|error` selects a real application screen and executes four finite offscreen passes using the production UI and CPU renderer. Width/height are logical pixels; `--scale` determines physical output size. Populated scenarios require an absolute `--fixture-root` containing disposable folders and optionally `cover.png`. Review reads actual plans without executing them. Capture bypasses normal settings loading, startup checks and background actions, writes the PNG and metadata atomically, and exits. An external 12-second timeout bounds the script invocation.
+
+Additional real-component capture states are `--scenario drop` and screens `symbols`, `symbols-organization`, `symbols-status`. These set the actual UI state and preload the same catalog without synthesizing a native drag or input gesture. An early native diagnostic close returns a cancellation error. The script requests a unique report file for each diagnostic run and promotes only that fresh report to `performance.json`.
 
 `--diagnose OUTPUT [FIXTURE_ROOT]` runs a separate isolated native CPU/GDI window through visible idle, hidden, restore and return-to-idle intervals, then exits. Input-contaminated intervals are labeled and retried within a 30-second overall diagnostic budget. The external script limit is 35 seconds. A failed gate is an explicit JSON result, never inferred as success from low CPU alone. GPU/driver telemetry is unavailable; desktop composition is not disabled.
 

@@ -1,6 +1,6 @@
 {
   "backend": "egui_software_backend CPU; production client UI; no native chrome or presentation",
-  "elapsed_ms": 32,
+  "elapsed_ms": 54,
   "folder_mutations": false,
   "frames": 4,
   "logical_size": [

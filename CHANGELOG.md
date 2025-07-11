@@ -6,7 +6,9 @@ FolderIcons introduces a portable Windows folder appearance editor with original
 
 ### Added
 
-- Six color themes, custom RGB colors, five badges and PNG/JPEG photo covers with live preview.
+- Six color themes, custom RGB colors, 17 original symbols and PNG/JPEG photo covers with live preview.
+- Native Explorer folder-drop handling, a highlighted target, bounded background validation, duplicate rejection and status feedback. Drops only update the selection.
+- A compact visual symbol picker grouped into Content, Organization and Status, with matching anti-aliased artwork in preview and ICO output.
 - Batch selection and reviewed Apply/Restore plans with per-folder results.
 - Multi-resolution RGBA ICO generation and folder-local relative icon references.
 - Preservation of unrelated desktop.ini settings, exact original-content backup, interrupted-operation journal and conservative conflict detection.
@@ -22,9 +24,11 @@ FolderIcons introduces a portable Windows folder appearance editor with original
 - Initialize accessibility before showing the native window, avoiding a startup panic.
 - Stop scheduling waits after an exit request so the process can shut down normally.
 - Discard stale repaint deadlines and duplicate unchanged pointer positions; preserve a quiet idle/hidden window and the retained bitmap for restore.
+- Invalidate in-flight review results after a folder drop and keep queued intake timers independent of UI repaint timing.
+- Treat an early diagnostic-window close as cancellation; use fresh report paths so an old rendering result cannot be mistaken for a new pass.
 
 ### Platform and validation limits
 
 Initial target: Windows 10/11 x64, one architecture. Planned standalone asset: `FolderIcons-v0.1.0.exe`, with its `.exe.sha256` checksum and license notices. No release is currently published. Binary is unsigned. The application rasterizes on the CPU and presents with Windows GDI.
 
-Automated validation covers 13 engine tests, local compilation, real production-UI client captures and bounded visible/hidden/restore diagnostics; see [verification notes](docs/TESTING.md) for exact results. Perceived responsiveness, native dialogs, live Apply/Restore, Explorer appearance/integration, clean-machine deployment and an end-to-end update remain pending. Legacy non-Unicode INI code pages and reparse/cloud placeholder folders are deliberately refused. Do not describe deferred checks as passed when publishing this draft.
+Automated validation covers 19 library/application tests, local compilation and production-UI captures of the editor, settings, themed symbols and drop target. An earlier compact build passed bounded visible/hidden/restore diagnostics; the latest post-drop runtime attempt ended before its report and is not a pass. Physical Explorer drag/drop, perceived responsiveness, native dialogs, live Apply/Restore, Explorer appearance/integration, clean-machine deployment and an end-to-end update remain pending. See [verification notes](docs/TESTING.md). Legacy non-Unicode INI code pages and reparse/cloud placeholder folders are deliberately refused.

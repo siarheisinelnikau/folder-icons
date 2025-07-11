@@ -535,6 +535,11 @@ impl ApplicationHandler<Event> for Host {
             .on_window_event(window, &event);
         match event {
             WindowEvent::CloseRequested => {
+                if self.diagnostic.is_some() && !el.exiting() {
+                    self.error=Some("Rendering diagnostic cancelled before completion; no runtime result was produced.".into());
+                    el.exit();
+                    return;
+                }
                 self.app.logic(&self.context);
                 if self.app.local_busy || self.app.installing {
                     self.app.message =
