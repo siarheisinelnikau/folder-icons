@@ -43,17 +43,6 @@ enum ResultEvent {
     Message(String),
     Error(String),
 }
-enum Network {
-    Check(bool),
-    Install(updates::Available),
-}
-enum NetEvent {
-    Checked(bool, Result<Option<updates::Available>, String>),
-    Progress(u64, u64),
-    Ready,
-    Error(String),
-}
-
 fn main() {
     std::panic::set_hook(Box::new(|info| write_error_log(&info.to_string())));
     if let Err(error) = run() {
@@ -80,33 +69,16 @@ fn run() -> anyhow::Result<()> {
         );
         return desktop::diagnose(PathBuf::from(&args[1]), args.get(2).map(PathBuf::from));
     }
-    if args.first().is_some_and(|x| x == "--finish-update") {
-        if let Err(e) = updates::finish_install(&args[1..]) {
-            // Helper has no console in release mode; leave a local diagnostic for recovery.
-            if let Ok(exe) = std::env::current_exe() {
-                let diagnostic = exe.with_extension("error.txt");
-                let _ = std::fs::write(&diagnostic, format!("{e:#}"));
-                // Reopen the preserved/replaced application to surface the failure in-app.
-                if let Some(target) = args.get(2).map(PathBuf::from)
-                    && target.is_absolute()
-                    && target.parent() == exe.parent()
-                    && target != exe
-                    && target.is_file()
-                {
-                    let mut command = std::process::Command::new(target);
-                    command.arg("--update-error").arg(diagnostic);
-                    #[cfg(windows)]
-                    {
-                        use std::os::windows::process::CommandExt;
-                        command.creation_flags(0x08000000);
-                    }
-                    let _ = command.spawn();
-                }
-            }
-            std::process::exit(1);
-        }
-        return Ok(());
+    if args.first().is_some_and(|x| x == "--apply-update") {
+        return rust_auto_updator::apply_update(&updates::config().map_err(anyhow::Error::msg)?)
+            .map_err(anyhow::Error::msg);
     }
+    let cleanup = if args.first().is_some_and(|x| x == "--cleanup-update") {
+        anyhow::ensure!(args.len() == 2, "Invalid update cleanup arguments");
+        Some(PathBuf::from(&args[1]))
+    } else {
+        None
+    };
     let update_error = if args.first().is_some_and(|x| x == "--update-error") {
         args.get(1).map(PathBuf::from)
     } else {
@@ -114,19 +86,23 @@ fn run() -> anyhow::Result<()> {
     };
     let paths = args
         .into_iter()
-        .skip(if update_error.is_some() { 2 } else { 0 })
+        .skip(if update_error.is_some() || cleanup.is_some() {
+            2
+        } else {
+            0
+        })
         .filter(|x| !x.to_string_lossy().starts_with("--"))
         .map(PathBuf::from)
         .take(128)
         .collect();
-    desktop::run(paths, update_error)
+    desktop::run(paths, update_error, cleanup)
 }
 
 struct App {
     work: SyncSender<Work>,
     results: Receiver<ResultEvent>,
-    network: SyncSender<Network>,
-    net_results: Receiver<NetEvent>,
+    network: Option<updates::Service>,
+    check_is_startup: bool,
     local_busy: bool,
     net_busy: bool,
     installing: bool,
@@ -147,7 +123,7 @@ struct App {
     plan_action: Action,
     report: Vec<String>,
     message: String,
-    update: Option<updates::Available>,
+    update: Option<Box<updates::Available>>,
     update_status: String,
     progress: Option<(u64, u64)>,
     render_timing: String,
@@ -185,41 +161,18 @@ impl App {
                 }
             })
             .expect("Cannot start file worker");
-        let (ntx, nrx) = mpsc::sync_channel(1);
-        let (etx, erx) = mpsc::sync_channel(8);
         let ctx = context.clone();
-        std::thread::Builder::new()
-            .name("foldericons-updates".into())
-            .spawn(move || {
-                while let Ok(job) = nrx.recv() {
-                    let event = match job {
-                        Network::Check(startup) => NetEvent::Checked(
-                            startup,
-                            updates::check().map_err(|e| format!("{e:#}")),
-                        ),
-                        Network::Install(update) => {
-                            let mut last = Instant::now() - Duration::from_secs(1);
-                            let result = updates::download(&update, |done, total| {
-                                if last.elapsed() >= Duration::from_millis(150) || done == total {
-                                    let _ = etx.try_send(NetEvent::Progress(done, total));
-                                    ctx.request_repaint();
-                                    last = Instant::now();
-                                }
-                            })
-                            .and_then(|stage| updates::start_install(&stage));
-                            match result {
-                                Ok(()) => NetEvent::Ready,
-                                Err(e) => NetEvent::Error(format!("{e:#}")),
-                            }
-                        }
-                    };
-                    if etx.send(event).is_err() {
-                        break;
-                    }
-                    ctx.request_repaint();
-                }
-            })
-            .expect("Cannot start update worker");
+        let network = if isolated {
+            Err("Update checks are disabled in preview mode.".into())
+        } else {
+            updates::config()
+                .and_then(|config| updates::Service::new(config, move || ctx.request_repaint()))
+        };
+        let update_status = network
+            .as_ref()
+            .err()
+            .cloned()
+            .unwrap_or_else(|| "Not checked yet".into());
         if !isolated {
             tx.try_send(Work::LoadSettings(update_error))
                 .expect("Initial queue is empty");
@@ -227,8 +180,8 @@ impl App {
         Self {
             work: tx,
             results: rrx,
-            network: ntx,
-            net_results: erx,
+            network: network.ok(),
+            check_is_startup: false,
             local_busy: !isolated,
             net_busy: false,
             installing: false,
@@ -250,7 +203,7 @@ impl App {
             report: vec![],
             message: "Choose folders, design an icon, then review an Apply plan.".into(),
             update: None,
-            update_status: "Not checked yet".into(),
+            update_status,
             progress: None,
             render_timing: "No frame samples yet".into(),
             pending_paths: Vec::new(),
@@ -283,7 +236,13 @@ impl App {
         }
     }
     fn check(&mut self, startup: bool) {
-        if !self.net_busy && self.network.try_send(Network::Check(startup)).is_ok() {
+        if !self.net_busy
+            && self
+                .network
+                .as_ref()
+                .is_some_and(|network| network.check().is_ok())
+        {
+            self.check_is_startup = startup;
             self.net_busy = true;
             self.update_status = "Checking releases…".into();
         }
@@ -415,9 +374,13 @@ impl App {
                 ctx.request_repaint_after(Duration::from_millis(80) - elapsed);
             }
         }
-        while let Ok(event) = self.net_results.try_recv() {
+        while let Some(event) = self
+            .network
+            .as_ref()
+            .and_then(|network| network.events.try_recv().ok())
+        {
             match event {
-                NetEvent::Checked(startup, result) => {
+                updates::Event::Checked(result) => {
                     self.net_busy = false;
                     match result {
                         Ok(Some(update)) => {
@@ -430,23 +393,27 @@ impl App {
                         }
                         Err(error) => {
                             self.update_status = error;
-                            if !startup {
+                            if !self.check_is_startup {
                                 self.settings_open = true;
                             }
                         }
                     }
                 }
-                NetEvent::Progress(done, total) => self.progress = Some((done, total)),
-                NetEvent::Ready => {
-                    self.installing = false;
-                    self.restarting = true;
+                updates::Event::Progress { received, total } => {
+                    self.progress = Some((received, total))
                 }
-                NetEvent::Error(error) => {
+                updates::Event::Ready(result) => {
+                    let result = result.and_then(|mut prepared| updates::handoff(&mut prepared));
                     self.installing = false;
                     self.net_busy = false;
-                    self.progress = None;
-                    self.update_status = error;
-                    self.settings_open = true;
+                    match result {
+                        Ok(()) => self.restarting = true,
+                        Err(error) => {
+                            self.progress = None;
+                            self.update_status = error;
+                            self.settings_open = true;
+                        }
+                    }
                 }
             }
         }

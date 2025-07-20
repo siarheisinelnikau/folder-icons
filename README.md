@@ -2,7 +2,7 @@
 
 An independent Windows desktop tool for original folder colors, badges and photo covers. Built in Rust with an egui desktop interface. MIT licensed. Inspired by the folder-organization use case of [FolderIco](https://www.folderico.com/); no affiliation, copied code or competitor assets.
 
-**Status: local first version with a CPU-rendered interface and verified client-area captures.** Interactive acceptance and the current build's runtime gate are incomplete; an earlier compact build passed bounded idle/hidden diagnostics. No repository or release has been published by this session. Planned canonical repository: [siarheisinelnikau/folder-icons](https://github.com/siarheisinelnikau/folder-icons).
+**Status: local application with a CPU-rendered interface and verified client-area captures.** The 0.1.1 optimized executable passed bounded visible-idle, hidden-idle and restore diagnostics on an isolated empty fixture. Interactive acceptance and user-perceived responsiveness remain unverified. No repository or release has been published by this session. Planned canonical repository: [siarheisinelnikau/folder-icons](https://github.com/siarheisinelnikau/folder-icons).
 
 ## Capabilities
 
@@ -22,7 +22,7 @@ Windows 10/11 x64 is the implementation target. The UI uses **CPU software raste
 
 The compact 780 × 590 editor puts selected folders above a horizontal appearance panel, with one primary action at each step. Review replaces the editor temporarily instead of repeating the folder list beside it; **Back** returns to editing. Technical file details are available in the review; rendering metrics live under Settings → Diagnostics. Windows' installed Microsoft YaHei font is used as a CJK fallback when available; that system font is not redistributed.
 
-Build with Rust 1.95+ and the MSVC C++ toolchain/Windows SDK:
+Build with Rust 1.95+ and the MSVC C++ toolchain/Windows SDK. Keep `rust-auto-updator` beside this repository: the core dependency is `../rust-auto-updator/crates/rust-auto-updator`. This is a local dependency; a standalone checkout or hosted CI must provision that sibling source before Cargo commands. No remote source is assumed.
 
 ```powershell
 Set-Location E:\work\github\folder-icons
@@ -31,7 +31,7 @@ cargo clippy --locked --all-targets -j 2 -- -D warnings
 ./scripts/package.ps1
 ```
 
-Build output is repository-local. Cargo is limited to two jobs. The x64 MSVC configuration requests the static CRT. Packaging creates `dist/FolderIcons-v0.1.0.exe`, `FolderIcons-v0.1.0.exe.sha256`, and third-party license notices. Dependency downloads may be required on a fresh machine; `--offline` works with a populated cache. See [verification notes](docs/TESTING.md).
+Build output is repository-local. Cargo is limited to two jobs. The x64 MSVC configuration requests the static CRT. Packaging creates `dist/FolderIcons-v0.1.1.exe`, `FolderIcons-v0.1.1.exe.sha256`, and third-party license notices. Dependency downloads may be required on a fresh machine; `--offline` works with a populated cache. See [verification notes](docs/TESTING.md).
 
 ## Use
 
@@ -41,7 +41,7 @@ Build output is repository-local. Cargo is limited to two jobs. The x64 MSVC con
 4. Click **Apply to folders**. Read each result. Explorer may refresh lazily; reopening the folder or pressing Refresh may be needed. The application sends a targeted shell notification only after an explicit successful action.
 5. To undo, select the same folders, click **Restore original…**, then **Restore folders**. Repeated Apply retains the original first backup, rather than replacing it with an already customized state.
 
-Paths passed on the command line preselect folders without changing them. Example: `FolderIcons-v0.1.0.exe "D:\Projects\Sample"`.
+Paths passed on the command line preselect folders without changing them. Example: `FolderIcons-v0.1.1.exe "D:\Projects\Sample"`.
 
 The window highlights the drop target while items are dragged over it. New folders are queued if a file operation is already running; duplicate, unsupported and over-limit items are summarized in the status line. A drop returns to the editor and invalidates any existing review, so the changed selection must be reviewed again.
 
@@ -61,9 +61,11 @@ Do not remove `.foldericons` while its icon is in use. To reset an appearance, u
 
 Stable checks use the canonical public GitHub Releases API without tokens. A 404, unpublished repository, network error or rate limit is an unavailable check, never an up-to-date result. Startup errors and no-update results remain in Settings without modal dialogs; an available update appears as a banner.
 
-**Download and install** accepts the matching versioned x64 EXE from the canonical repository. It verifies advertised length, SHA-256 (GitHub asset digest and/or the matching `.exe.sha256` asset), and the x64 PE header before staging. A helper waits for this app to exit, keeps a versioned rollback executable, replaces the running EXE at its existing path, and restarts. Settings and folder backups are outside that replacement. No unattended download/install occurs. This workflow is implemented but has not been executed in this development session; it needs a real published test release and manual validation.
+**Download and install** accepts the matching versioned x64 EXE from the canonical repository. It verifies advertised length, SHA-256 (GitHub asset digest and/or the matching `.exe.sha256` asset), and the x64 PE header before staging. The shared `rust-auto-updator` core performs release selection, verification and installation. Its downloaded executable acts as the headless helper: it waits for this app to exit, keeps a rollback copy, replaces the EXE at its existing path, and restarts. Settings and folder backups are outside that replacement. No unattended download/install occurs. This workflow is implemented but has not been executed in this development session; it needs a real published test release and manual validation.
 
-The executable directory must be writable. Rollback files `*.exe.previous-VERSION`, `.FolderIcons-helper-*.exe` and helper `*.error.txt` diagnostics are retained for inspection and can be removed after all FolderIcons processes exit and the update is verified. Interrupted `.FolderIcons-update-VERSION.exe` stages may also need removal before a retry. Release files are unsigned in this initial build. The [release-note draft](CHANGELOG.md) states the validation limits. Publishing is deliberately outside the current task.
+The executable directory must be writable. New updates stage inside `.FolderIcons-update-*` folders and remove only known updater files after successful restart. Interrupted stages are retained for inspection. Files left by older releases (`*.exe.previous-VERSION`, `.FolderIcons-helper-*.exe`, `.FolderIcons-update-VERSION.exe`) are not automatically claimed or deleted by the shared core. Old helpers already launched from an old executable can still install this version; future updates use the shared protocol. Release files are unsigned. Publishing is outside this task.
+
+The EXE now embeds the application's original artwork at 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixels; the same artwork supplies the window and taskbar icons. This editor has no tray icon. Regenerate its assets without creating a window with `cargo run --example generate-application-icon`. `scripts/verify_icons.py` creates a native resource proof on light/dark backgrounds without launching the app; [native resource proof](docs/icon-resource-proof.png) does not certify OS taskbar interaction.
 
 ## Screenshots
 

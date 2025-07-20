@@ -1,3 +1,26 @@
+# Shared updater and icon audit, 0.1.1
+
+The old optimized executable had no PE icon resource section. The application now embeds matching original folder artwork at 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixels, and explicitly assigns the window/taskbar artwork. `inspect_executable.py` compares the final PE payload with the source ICO and checks file/product versions; `verify_icons.py` draws loaded native icon resources on light/dark backgrounds without opening a window. This editor has no tray.
+
+The updater's local module now contains product configuration only. Shared Service events wake the reactive host. The persisted startup toggle/manual check flow and per-EXE `.sha256` release contract are preserved. The new helper protocol is parsed before ordinary startup, and cleanup starts after the first successful presentation. Old helpers use copies of the old executable and can still install this release; old leftover helper/rollback files are preserved for inspection.
+
+Source review confirms CPU rasterization with the pinned egui software backend and softbuffer 0.4.8 Win32 DIB/BitBlt presentation. A hidden worker wake now marks the scene dirty for restoration; minimized, hidden and occluded windows skip rasterization/presentation. Idle waits use explicit useful work/repaint deadlines. A native resource proof and finite runtime diagnostic are separate checks; neither certifies user-perceived lag or native tray interaction.
+
+Current verification used repository-local targets with one Cargo job: formatting, Clippy with `-D warnings`, all 18 tests, and optimized Windows x64 compilation passed. The PE is GUI subsystem 2, AMD64, Windows version 0.1.1.0; all nine embedded ICO payloads exactly match the checked-in source. The [native icon resource proof](icon-resource-proof.png) was opened and visually reviewed.
+
+The finite isolated empty-fixture diagnostic launched the exact optimized binary, PID 56568, and exited normally with `gate_passed=true`, without input automation, network or user settings:
+
+| State | Seconds | Raster frames | Presents | CPU, % of one core |
+| --- | ---: | ---: | ---: | ---: |
+| Visible settled idle | 5.009 | 0 | 0 | 0.0 |
+| Hidden settled idle | 5.003 | 0 | 0 | 0.0 |
+| Restore | 1.001 | 1 | 1 | 0.0 at process timer resolution |
+| Return to idle | 3.001 | 0 | 0 | 0.0 |
+
+The restore raster took 2.17 ms and its presentation 0.84 ms in this sample. Startup produced two frames in 1.005 s; startup is not an idle sample. The backend was the production CPU rasterizer and pinned Win32 GDI presenter. GPU telemetry was unavailable. This establishes quiet rendering for the isolated sample; populated real workflows, pointer/keyboard behavior, minimized state and perceived smoothness require separate validation.
+
+The historical results below refer to older binaries unless explicitly labeled otherwise. Current final test/build/diagnostic results are included in the task handoff.
+
 # Verification
 
 ## Automated checks
@@ -56,7 +79,7 @@ PNG and JSON files in `docs/screenshots` are real application output. Metadata r
 ## Remaining manual acceptance
 
 - Confirm perceived smoothness and responsiveness on the user's desktop. No screenshot or CPU sample replaces that confirmation.
-- Complete a fresh bounded native rendering diagnostic for the current packaged binary, including settled visible, hidden and restored states.
+- Repeat bounded diagnostics with representative populated workloads when needed; the 0.1.1 isolated empty-fixture visible/hidden/restore sample is recorded above.
 - Physically drag folders from Explorer onto empty, populated and review states; verify hover/cancel, multiple folders, duplicate/file rejection and queued intake during work. Source and injected-event tests cover these paths; native gesture acceptance remains unverified.
 - Verify keyboard traversal, accessibility actions, native folder/photo dialogs, pointer/scroll/resize behavior and actual DPI changes; the static 150% capture checks layout only.
 - Through the GUI, Apply to a disposable folder and a batch with Unicode/spaces, reapply, then Restore. Confirm Explorer refresh and exact original INI/attributes. Engine tests pass; live GUI Apply/Restore was not completed before computer use was stopped and subsequently excluded.

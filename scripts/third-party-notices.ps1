@@ -11,9 +11,12 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination (Join-Pat
 $lines = [System.Collections.Generic.List[string]]::new()
 $lines.Add('FolderIcons third-party dependency licenses')
 $lines.Add('Generated from Cargo.lock and locally resolved crate sources. Includes transitive and build dependencies.')
-foreach ($package in ($metadata.packages | Where-Object source | Sort-Object name,version)) {
+foreach ($package in ($metadata.packages | Where-Object { $_.source -or $_.name -eq 'rust-auto-updator' } | Sort-Object name,version)) {
     $lines.Add("$($package.name) $($package.version) | $($package.license) | $($package.repository)")
     $crateRoot = Split-Path -Parent $package.manifest_path
+    if ($package.name -eq 'rust-auto-updator') {
+        Copy-Item -LiteralPath (Join-Path $crateRoot '../../LICENSE') -Destination (Join-Path $noticeDirectory 'rust-auto-updator-MIT.txt') -Force
+    }
     $files = Get-ChildItem -LiteralPath $crateRoot -File -Recurse | Where-Object {
         ($_.Name -match '(?i)(license|licence|copying|notice|OFL|UFL)' -and $_.Extension -ne '.rs') -or
         ($_.Extension -eq '.txt' -and $_.FullName -match '[\\/]fonts[\\/]')

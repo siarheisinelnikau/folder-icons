@@ -33,6 +33,7 @@ struct Host {
     pixels: Vec<u32>,
     size: (u32, u32),
     dirty: bool,
+    occluded: bool,
     deadline: Option<Instant>,
     frame_times: VecDeque<f64>,
     error: Option<String>,
@@ -45,6 +46,7 @@ struct Host {
     window_events: std::collections::BTreeMap<String, u64>,
     last_cursor: Option<winit::dpi::PhysicalPosition<f64>>,
     input_events: u64,
+    cleanup: Option<PathBuf>,
 }
 
 struct Diagnostic {
@@ -92,16 +94,21 @@ pub fn diagnose(output: PathBuf, fixture: Option<PathBuf>) -> Result<()> {
         output.is_absolute(),
         "Diagnostic output path must be absolute"
     );
-    run_internal(Vec::new(), None, Some((output, fixture)))
+    run_internal(Vec::new(), None, Some((output, fixture)), None)
 }
 
-pub fn run(paths: Vec<PathBuf>, update_error: Option<PathBuf>) -> Result<()> {
-    run_internal(paths, update_error, None)
+pub fn run(
+    paths: Vec<PathBuf>,
+    update_error: Option<PathBuf>,
+    cleanup: Option<PathBuf>,
+) -> Result<()> {
+    run_internal(paths, update_error, None, cleanup)
 }
 fn run_internal(
     paths: Vec<PathBuf>,
     update_error: Option<PathBuf>,
     diagnostic: Option<(PathBuf, Option<PathBuf>)>,
+    cleanup: Option<PathBuf>,
 ) -> Result<()> {
     let event_loop = EventLoop::<Event>::with_user_event().build()?;
     let proxy = event_loop.create_proxy();
@@ -137,6 +144,7 @@ fn run_internal(
         pixels: Vec::new(),
         size: (0, 0),
         dirty: true,
+        occluded: false,
         deadline: None,
         frame_times: VecDeque::new(),
         error: None,
@@ -157,6 +165,7 @@ fn run_internal(
         window_events: std::collections::BTreeMap::new(),
         last_cursor: None,
         input_events: 0,
+        cleanup,
     };
     event_loop.run_app(&mut host)?;
     if let Some(error) = host.error {
@@ -167,12 +176,13 @@ fn run_internal(
 
 impl Host {
     fn visible(&self) -> bool {
-        self.window.as_ref().is_some_and(|w| {
-            !w.is_minimized().unwrap_or(false)
-                && w.is_visible().unwrap_or(false)
-                && w.inner_size().width > 0
-                && w.inner_size().height > 0
-        })
+        !self.occluded
+            && self.window.as_ref().is_some_and(|w| {
+                !w.is_minimized().unwrap_or(false)
+                    && w.is_visible().unwrap_or(false)
+                    && w.inner_size().width > 0
+                    && w.inner_size().height > 0
+            })
     }
     fn schedule(&mut self, when: Instant) {
         self.deadline = Some(self.deadline.map_or(when, |old| old.min(when)));
@@ -183,11 +193,12 @@ impl Host {
             el.exit();
             return;
         }
-        if self.visible() {
-            self.dirty = true;
-            if let Some(w) = &self.window {
-                w.request_redraw();
-            }
+        // Worker updates while hidden must survive until the next visible frame.
+        self.dirty = true;
+        if self.visible()
+            && let Some(w) = &self.window
+        {
+            w.request_redraw();
         }
     }
     fn paint(&mut self) -> Result<()> {
@@ -273,6 +284,11 @@ impl Host {
             .present()
             .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         self.presents += 1;
+        if let Some(directory) = self.cleanup.take()
+            && let Ok(config) = folder_icons::updates::config()
+        {
+            rust_auto_updator::cleanup_after_update(directory, config.install);
+        }
         self.present_ns += presented.elapsed().as_nanos() as u64;
         Ok(())
     }
@@ -386,25 +402,27 @@ impl ApplicationHandler<Event> for Host {
         }
         let result = (|| -> Result<()> {
             let artwork =
-                folder_icons::render::render(&folder_icons::render::Style::default(), None);
+                image::load_from_memory(include_bytes!("../assets/icon-256.png"))?.into_rgba8();
             let icon = winit::window::Icon::from_rgba(artwork.into_raw(), 256, 256)?;
-            let window = Rc::new(
-                el.create_window(
-                    Window::default_attributes()
-                        .with_visible(false)
-                        .with_active(self.diagnostic.is_none())
-                        .with_title("FolderIcons")
-                        .with_inner_size(winit::dpi::LogicalSize::new(
-                            crate::ui::DEFAULT_SIZE[0],
-                            crate::ui::DEFAULT_SIZE[1],
-                        ))
-                        .with_min_inner_size(winit::dpi::LogicalSize::new(
-                            crate::ui::MIN_SIZE[0],
-                            crate::ui::MIN_SIZE[1],
-                        ))
-                        .with_window_icon(Some(icon)),
-                )?,
-            );
+            let attributes = Window::default_attributes()
+                .with_visible(false)
+                .with_active(self.diagnostic.is_none())
+                .with_title("FolderIcons")
+                .with_inner_size(winit::dpi::LogicalSize::new(
+                    crate::ui::DEFAULT_SIZE[0],
+                    crate::ui::DEFAULT_SIZE[1],
+                ))
+                .with_min_inner_size(winit::dpi::LogicalSize::new(
+                    crate::ui::MIN_SIZE[0],
+                    crate::ui::MIN_SIZE[1],
+                ))
+                .with_window_icon(Some(icon.clone()));
+            #[cfg(windows)]
+            let attributes = {
+                use winit::platform::windows::WindowAttributesExtWindows;
+                attributes.with_taskbar_icon(Some(icon))
+            };
+            let window = Rc::new(el.create_window(attributes)?);
             let surface_context = softbuffer::Context::new(window.clone())
                 .map_err(|e| anyhow::anyhow!(e.to_string()))?;
             let surface = softbuffer::Surface::new(&surface_context, window.clone())
@@ -553,6 +571,12 @@ impl ApplicationHandler<Event> for Host {
                 if let Err(error) = self.paint() {
                     self.error = Some(format!("CPU rendering failed: {error:#}"));
                     el.exit();
+                }
+            }
+            WindowEvent::Occluded(occluded) => {
+                self.occluded = occluded;
+                if !occluded {
+                    self.wake(el);
                 }
             }
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => self.wake(el),

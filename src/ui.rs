@@ -1,5 +1,5 @@
 use crate::{
-    Action, App, Network, REPOSITORY, VERSION, Work,
+    Action, App, REPOSITORY, VERSION, Work,
     render::{self, Badge},
 };
 use egui::{Color32, RichText, Stroke, Vec2};
@@ -484,7 +484,7 @@ impl App {
             if let Some((done,total))=self.progress {ui.add(egui::ProgressBar::new(done as f32/total.max(1) as f32).text(format!("{} / {} KB",done/1024,total/1024)));}
             if let Some(update)=self.update.clone() {
                 secondary(ui,"The app will close, install the verified update and restart. Settings and folder backups are preserved.");
-                if primary(ui,"Download and install",!self.net_busy&&!self.local_busy&&self.plans.is_empty()).clicked()&&self.network.try_send(Network::Install(update)).is_ok(){self.net_busy=true;self.installing=true;self.update_status="Downloading and verifying update…".into();}
+                if primary(ui,"Download and install",!self.net_busy&&!self.local_busy&&self.plans.is_empty()).clicked()&&self.network.as_ref().is_some_and(|network| network.download(update).is_ok()){self.net_busy=true;self.installing=true;self.update_status="Downloading and verifying update…".into();}
             }
             ui.add_space(8.);ui.separator();section(ui,"Explorer shortcut");
             secondary(ui,"Open this editor from a folder’s right-click menu.");

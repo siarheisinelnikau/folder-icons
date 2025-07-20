@@ -1,3 +1,10 @@
+## 0.1.1 — local changes
+
+- Embed the original application icon in the executable and explicitly assign the window/taskbar identity.
+- Use the shared Rust Auto Updator core while preserving per-EXE SHA-256 assets, startup opt-out and user-initiated installation.
+- Retain hidden-window changes for restore and skip rasterization/presentation while occluded.
+- Actual tray/taskbar interaction, online update installation and perceptual responsiveness require separate acceptance; this application has no tray.
+
 # Release notes
 
 ## 0.1.0 — unpublished first-release draft

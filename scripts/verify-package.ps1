@@ -14,3 +14,8 @@ if ($checksumParts.Length -ne 2 -or $checksumParts[1] -ne [System.IO.Path]::GetF
 $actualHash = (Get-FileHash -LiteralPath $AssetPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($checksumParts[0] -ne $actualHash) { throw 'Package SHA-256 mismatch' }
 Write-Output "Verified x64 PE32+ GUI executable and SHA-256 ($($bytes.Length) bytes)."
+
+$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../Cargo.toml') -Raw
+$version = [regex]::Match($manifest, '(?m)^version = "([^"]+)"').Groups[1].Value
+python (Join-Path $PSScriptRoot 'inspect_executable.py') $AssetPath --expect-version $version --icon (Join-Path $PSScriptRoot '../assets/FolderIcons.ico')
+if ($LASTEXITCODE -ne 0) { throw 'Embedded application icon/version verification failed' }
