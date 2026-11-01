@@ -1,8 +1,9 @@
 {
   "backend": "egui_software_backend CPU; production client UI; no native chrome or presentation",
-  "elapsed_ms": 51,
+  "elapsed_ms": 36,
   "folder_mutations": false,
   "frames": 4,
+  "language": "en",
   "logical_size": [
     780,
     590
@@ -15,5 +16,6 @@
   "scale": 1.0,
   "scenario": "populated",
   "screen": "symbols-status",
-  "version": "0.1.0"
+  "theme": "Light",
+  "version": "0.2.0"
 }

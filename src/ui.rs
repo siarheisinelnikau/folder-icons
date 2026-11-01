@@ -643,7 +643,7 @@ impl App {
             .open(&mut open)
             .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
             .fixed_size(Vec2::new(
-                464.,
+                656.,
                 if self.symbol_category == 1 {
                     296.
                 } else {
@@ -677,7 +677,7 @@ impl App {
                                         .fit_to_exact_size(Vec2::splat(36.));
                                     if ui
                                         .add_sized(
-                                            [140., 58.],
+                                            [196., 58.],
                                             egui::Button::image_and_text(
                                                 image,
                                                 l.text(badge.label()),

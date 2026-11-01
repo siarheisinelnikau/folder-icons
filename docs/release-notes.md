@@ -12,6 +12,7 @@
 
 ## Verification and download
 - Windows x64 portable executable: `FolderIcons-v0.2.0.exe`, with matching `.exe.sha256` and third-party notices.
-- Catalog completeness/placeholder checks, settings migration/roundtrip tests and existing isolated engine/application tests are included.
+- All 21 tests, formatting, strict all-target Clippy and the optimized x64 build passed. Catalog checks preserve placeholders; legacy settings migrate and roundtrip correctly.
+- The final executable passed a finite isolated CPU/GDI diagnostic: no rasterization or presentation in visible/hidden idle, and one frame on restore. GPU telemetry and interactive acceptance remain unverified.
 - Real client-area captures use the production CPU software renderer. They do not certify OS input, native dialog behavior or performance of normal operation.
 - The application and updater are unsigned. Live in-place update installation and manual Explorer workflows remain separate acceptance checks.

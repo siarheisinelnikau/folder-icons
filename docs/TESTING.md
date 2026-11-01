@@ -4,7 +4,7 @@ The 0.2.0 change adds 119 six-language UI messages, message parameters retained 
 
 Source review retains the existing `egui_software_backend` CPU rasterizer and pinned `softbuffer` Windows GDI presentation path. `Host::paint` skips hidden/minimized/occluded windows; dirty worker state survives for restore; `about_to_wait` uses `Wait` or meaningful work deadlines. Applying the selected theme happens only on a real theme change, and saving preferences occurs only after a changed control. Language lookup uses an initialized-once built-in catalog, with no network requests or per-frame disk reads.
 
-Real 0.2.0 production client-area images in `docs/screenshots` cover English light main/settings, Russian dark main, German dark settings, French light main, Spanish dark main and Italian light main. All seven finite offscreen capture invocations rendered four frames, saved fresh PNG/JSON files and exited with code 0. Each actual PNG was opened and inspected for text, spacing, controls, overflow, readable palette and preserved Unicode folder names. The captures do not certify OS input, native dialog controls, registry integration, idle/hidden rendering or subjective responsiveness.
+Real 0.2.0 production client-area images in `docs/screenshots` cover English light main/settings, Russian dark main, German dark settings, French light main, Spanish dark main and Italian light main. All eleven final capture states (main/settings across languages plus the three symbol categories and French Organization) use finite offscreen capture invocations; each invocation rendered four frames, saved fresh PNG/JSON files and exited with code 0. Each actual PNG was opened and inspected for text, spacing, controls, overflow, readable palette and preserved Unicode folder names. The captures do not certify OS input, native dialog controls, registry integration, idle/hidden rendering or subjective responsiveness.
 
 To select a capture language/theme:
 
@@ -16,7 +16,19 @@ To select a capture language/theme:
 
 Native Windows dialog button localization follows the OS; FolderIcons supplies translated dialog titles and filters. Optional Explorer registration uses the selected language only after the user chooses Enable context menu; merely switching language does not write to the registry. Technical errors remain original diagnostics under translated failure labels.
 
-Current checks, packaged hash and runtime sample are recorded below when complete. No real folder appearance, normal settings, registry entry or updater was modified during these checks.
+Formatting, all 21 tests (18 library and 3 application), strict all-target Clippy, and the optimized Windows x64 build passed. Byte-only packaging verifies AMD64 PE32+, the Windows GUI subsystem, version 0.2.0.0, nine embedded icon images matching the source artwork, and the SHA-256 sidecar. No real folder appearance, normal settings, registry entry or updater was modified during these checks.
+
+The final packaged executable is 7,317,504 bytes; SHA-256 `6dd105ca71b9d21e77c06e6d24d7b26d126ac936cd030a22a85121bd55cfed1b`. A fresh finite native-window diagnostic on this exact EXE, PID 13972, used an isolated empty fixture, no network/user settings/input, and exited normally with `gate_passed=true`:
+
+| State | Seconds | Raster frames | Presents | CPU, % of one core |
+| --- | ---: | ---: | ---: | ---: |
+| Visible settled idle | 5.000 | 0 | 0 | 0.0 |
+| Hidden settled idle | 5.000 | 0 | 0 | 0.0 |
+| Restore | 1.001 | 1 | 1 | 0.0 at process timer resolution |
+| Return to idle | 3.000 | 0 | 0 | 0.0 |
+
+Restore rasterization took 1.41 ms; GDI presentation took 0.62 ms. Startup rendered two frames in one second and is excluded from idle measurements. Twenty logical CPUs were exposed, so idle machine-normalized CPU was also 0.0%. The actual backend was `egui_software_backend` CPU rasterization plus `softbuffer` Windows GDI. GPU telemetry was unavailable. This sample establishes quiet default-theme rendering for the isolated fixture; theme/language input transitions, populated real workflows, minimized state, native dialogs and subjective smoothness remain manual acceptance checks. The owned diagnostic process exited; no normal application instance was launched.
+
 
 # Historical verification (0.1.1 and earlier)
 

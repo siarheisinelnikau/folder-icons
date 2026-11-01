@@ -2,7 +2,7 @@
 
 An independent Windows desktop tool for original folder colors, badges and photo covers. Built in Rust with an egui desktop interface. MIT licensed. Inspired by the folder-organization use case of [FolderIco](https://www.folderico.com/); no affiliation, copied code or competitor assets.
 
-**Version 0.2.0** adds six interface languages and saved light/dark themes to the CPU-rendered Windows application. The previous 0.1.1 optimized executable passed bounded visible-idle, hidden-idle and restore diagnostics; those historical results do not certify this new binary. Current automated checks and real client-area captures are documented in [verification notes](docs/TESTING.md). Interactive acceptance remains pending. Canonical repository: [siarheisinelnikau/folder-icons](https://github.com/siarheisinelnikau/folder-icons).
+**Version 0.2.0** adds six interface languages and saved light/dark themes to the CPU-rendered Windows application. The 0.2.0 optimized executable passed bounded visible-idle, hidden-idle and restore diagnostics on an isolated empty fixture. Current automated checks and real client-area captures are documented in [verification notes](docs/TESTING.md). Interactive acceptance remains pending. Canonical repository: [siarheisinelnikau/folder-icons](https://github.com/siarheisinelnikau/folder-icons).
 
 ## Capabilities
 
@@ -89,6 +89,6 @@ Russian editor, Dark theme. [German dark settings](docs/screenshots/settings-dar
 
 ![Visual picker showing original document, photo, music, video, code and game symbols](docs/screenshots/symbols.png)
 
-The Content category. Additional [Organization](docs/screenshots/symbols-organization.png) and [Status](docs/screenshots/symbols-status.png) categories use the same original artwork and visual style. The [drop target capture](docs/screenshots/drop.png) shows the drag-hover appearance; it does not certify a physical Explorer drag gesture.
+The Content category, refreshed for 0.2.0 with wider tiles for translated labels. Additional [Organization](docs/screenshots/symbols-organization.png) and [Status](docs/screenshots/symbols-status.png) categories use the same original artwork and visual style. The [drop target capture](docs/screenshots/drop.png) shows the drag-hover appearance; it does not certify a physical Explorer drag gesture.
 
 See [verification notes](docs/TESTING.md) for reproducible capture commands, a compact 150% scale view and the remaining interactive checks. Computer use is not required to regenerate these images.

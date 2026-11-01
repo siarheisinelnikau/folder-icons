@@ -1,0 +1,21 @@
+{
+  "backend": "egui_software_backend CPU; production client UI; no native chrome or presentation",
+  "elapsed_ms": 38,
+  "folder_mutations": false,
+  "frames": 4,
+  "language": "fr",
+  "logical_size": [
+    780,
+    590
+  ],
+  "network": false,
+  "physical_size": [
+    780,
+    590
+  ],
+  "scale": 1.0,
+  "scenario": "populated",
+  "screen": "symbols-organization",
+  "theme": "Light",
+  "version": "0.2.0"
+}
