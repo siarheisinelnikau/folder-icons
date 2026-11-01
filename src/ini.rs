@@ -7,8 +7,11 @@ fn decode(bytes: &[u8]) -> Result<String> {
             bail!("Malformed UTF-16 desktop.ini");
         }
         let words: Vec<u16> = bytes[2..]
-            .chunks_exact(2)
-            .map(|x| u16::from_le_bytes([x[0], x[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .copied()
+            .map(u16::from_le_bytes)
             .collect();
         return Ok(String::from_utf16(&words)?);
     }

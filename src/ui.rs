@@ -101,17 +101,17 @@ pub fn apply_theme(ctx: &egui::Context, theme: Theme) {
     } else {
         Color32::from_rgb(212, 237, 232)
     };
-    style.visuals.selection.stroke = Stroke::new(1., p.accent);
+    style.visuals.selection.stroke = Stroke::new(1.0_f32, p.accent);
     style.visuals.widgets.inactive.bg_fill = p.surface;
     style.visuals.widgets.inactive.weak_bg_fill = p.surface;
-    style.visuals.widgets.inactive.bg_stroke = Stroke::new(1., p.border);
+    style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, p.border);
     style.visuals.widgets.hovered.bg_fill = if theme == Theme::Dark {
         Color32::from_rgb(44, 73, 76)
     } else {
         Color32::from_rgb(228, 240, 237)
     };
     style.visuals.widgets.active.bg_fill = style.visuals.selection.bg_fill;
-    style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1., p.border);
+    style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, p.border);
     style.visuals.widgets.noninteractive.bg_fill = p.canvas;
     style.spacing.item_spacing = Vec2::new(8., 8.);
     style.spacing.button_padding = Vec2::new(12., 7.);
@@ -301,7 +301,7 @@ impl App {
             painter.rect_stroke(
                 rect,
                 10.,
-                Stroke::new(2., p.accent),
+                Stroke::new(2.0_f32, p.accent),
                 egui::StrokeKind::Inside,
             );
             painter.text(
@@ -361,7 +361,7 @@ impl App {
         });
         egui::Frame::new()
             .fill(p.surface)
-            .stroke(Stroke::new(1., p.border))
+            .stroke(Stroke::new(1.0_f32, p.border))
             .corner_radius(8)
             .inner_margin(12)
             .show(ui, |ui| {
@@ -432,7 +432,7 @@ impl App {
         section(ui, l.text("Appearance"));
         egui::Frame::new()
             .fill(p.surface)
-            .stroke(Stroke::new(1., p.border))
+            .stroke(Stroke::new(1.0_f32, p.border))
             .corner_radius(8)
             .inner_margin(14)
             .show(ui, |ui| {
@@ -457,7 +457,7 @@ impl App {
                                         egui::Button::new(if selected { "•" } else { "" })
                                             .fill(Color32::from_rgb(color[0], color[1], color[2]))
                                             .stroke(Stroke::new(
-                                                if selected { 2. } else { 0. },
+                                                if selected { 2.0_f32 } else { 0.0_f32 },
                                                 p.ink,
                                             )),
                                     )
@@ -548,7 +548,7 @@ impl App {
         if self.plans.is_empty() {
             return;
         }
-        egui::Frame::new().fill(p.surface).stroke(Stroke::new(1.,p.border)).corner_radius(8).inner_margin(14).show(ui,|ui| {
+        egui::Frame::new().fill(p.surface).stroke(Stroke::new(1.0_f32,p.border)).corner_radius(8).inner_margin(14).show(ui,|ui| {
             ui.set_min_width(ui.available_width());
             ui.horizontal(|ui| {
                 if self.plan_action==Action::Apply && let Some(texture)=&self.texture {ui.add(egui::Image::new(texture).fit_to_exact_size(Vec2::splat(88.)));}
