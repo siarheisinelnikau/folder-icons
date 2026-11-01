@@ -1,5 +1,15 @@
 # FolderIcons 0.2.0 verification
 
+## Final 0.2.0 verification on Rust 1.99.1
+
+This final package supersedes the interim 0.2.0 executable measurements below. Formatting, strict all-target Clippy and all 22 tests passed on Rust 1.99.1. Explicit theme selection is covered against opposite Windows theme inputs.
+
+The final `FolderIcons-v0.2.0.exe` is 7,302,144 bytes, SHA-256 `8fc28833a9f08520029fa5e9c519811fcccebd5d741b79366e6175bc9f1f668e`. PE version, the nine packaged icon sizes and the checksum passed inspection. Fresh English/light and German/dark production captures were inspected.
+
+The exact final executable's isolated diagnostic, PID 43996, exited successfully with `gate_passed=true`. Clean visible (5 s), hidden (5 s) and return-to-idle (3 s) intervals each recorded zero frames, zero presentations and zero CPU at sampling resolution. Restore produced one frame: 1.46 ms rasterization and 0.47 ms GDI presentation. Two earlier pointer-active intervals were explicitly classified as interaction, then excluded from the settled samples. GPU telemetry and normal user input workflows remain unverified.
+
+Earlier version-specific records below remain historical evidence.
+
 The 0.2.0 change adds 119 six-language UI messages, message parameters retained until paint, and saved Light/Dark settings. Catalog tests check every translation and parameter set. Settings tests load the legacy format without language/theme fields and roundtrip a changed language/theme while preserving startup-update opt-out. A formatting regression ensures placeholder-like text inside user data is never interpreted as another parameter.
 
 Source review retains the existing `egui_software_backend` CPU rasterizer and pinned `softbuffer` Windows GDI presentation path. `Host::paint` skips hidden/minimized/occluded windows; dirty worker state survives for restore; `about_to_wait` uses `Wait` or meaningful work deadlines. Applying the selected theme happens only on a real theme change, and saving preferences occurs only after a changed control. Language lookup uses an initialized-once built-in catalog, with no network requests or per-frame disk reads.
