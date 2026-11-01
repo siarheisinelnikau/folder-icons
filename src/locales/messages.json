@@ -1,0 +1,828 @@
+{
+  "Settings & updates": [
+    "Настройки и обновления",
+    "Paramètres et mises à jour",
+    "Einstellungen und Updates",
+    "Ajustes y actualizaciones",
+    "Impostazioni e aggiornamenti"
+  ],
+  "Language": [
+    "Язык",
+    "Langue",
+    "Sprache",
+    "Idioma",
+    "Lingua"
+  ],
+  "Theme": [
+    "Тема",
+    "Thème",
+    "Design",
+    "Tema",
+    "Tema"
+  ],
+  "Light": [
+    "Светлая",
+    "Clair",
+    "Hell",
+    "Claro",
+    "Chiaro"
+  ],
+  "Dark": [
+    "Тёмная",
+    "Sombre",
+    "Dunkel",
+    "Oscuro",
+    "Scuro"
+  ],
+  "Interface": [
+    "Интерфейс",
+    "Interface",
+    "Oberfläche",
+    "Interfaz",
+    "Interfaccia"
+  ],
+  "Version {version} is available": [
+    "Доступна версия {version}",
+    "La version {version} est disponible",
+    "Version {version} ist verfügbar",
+    "La versión {version} está disponible",
+    "È disponibile la versione {version}"
+  ],
+  "View update": [
+    "Просмотреть обновление",
+    "Voir la mise à jour",
+    "Update anzeigen",
+    "Ver actualización",
+    "Visualizza aggiornamento"
+  ],
+  "Review changes": [
+    "Просмотреть изменения",
+    "Vérifier les modifications",
+    "Änderungen prüfen",
+    "Revisar cambios",
+    "Rivedi modifiche"
+  ],
+  "Restore original…": [
+    "Вернуть исходный вид…",
+    "Rétablir l’apparence…",
+    "Original wiederherstellen…",
+    "Restaurar original…",
+    "Ripristina originale…"
+  ],
+  "Review before applying. Original appearances are backed up.": [
+    "Перед применением проверьте изменения. Исходный вид сохраняется.",
+    "Vérifiez avant d’appliquer. L’apparence initiale est sauvegardée.",
+    "Vor dem Anwenden prüfen. Das ursprüngliche Aussehen wird gesichert.",
+    "Revisa antes de aplicar. Se guarda la apariencia original.",
+    "Controlla prima di applicare. L’aspetto originale viene salvato."
+  ],
+  "Wait for installation to finish": [
+    "Дождитесь завершения установки",
+    "Attendez la fin de l’installation",
+    "Warten Sie auf das Installationsende",
+    "Espera a que termine la instalación",
+    "Attendi il termine dell’installazione"
+  ],
+  "Drop folders to add them": [
+    "Перетащите папки, чтобы добавить их",
+    "Déposez des dossiers pour les ajouter",
+    "Ordner zum Hinzufügen ablegen",
+    "Suelta carpetas para añadirlas",
+    "Trascina le cartelle per aggiungerle"
+  ],
+  "Folders are added to the selection. No files are moved.": [
+    "Папки будут добавлены в список. Файлы не перемещаются.",
+    "Les dossiers sont ajoutés à la sélection. Aucun fichier n’est déplacé.",
+    "Ordner werden zur Auswahl hinzugefügt. Dateien werden nicht verschoben.",
+    "Las carpetas se añaden a la selección. No se mueven archivos.",
+    "Le cartelle vengono aggiunte alla selezione. Nessun file viene spostato."
+  ],
+  "Folders": [
+    "Папки",
+    "Dossiers",
+    "Ordner",
+    "Carpetas",
+    "Cartelle"
+  ],
+  "{count} selected": [
+    "Выбрано: {count}",
+    "{count} sélectionnés",
+    "{count} ausgewählt",
+    "{count} seleccionadas",
+    "{count} selezionate"
+  ],
+  "+ Add folders…": [
+    "+ Добавить папки…",
+    "+ Ajouter des dossiers…",
+    "+ Ordner hinzufügen…",
+    "+ Añadir carpetas…",
+    "+ Aggiungi cartelle…"
+  ],
+  "Clear list": [
+    "Очистить список",
+    "Vider la liste",
+    "Liste leeren",
+    "Vaciar lista",
+    "Svuota elenco"
+  ],
+  "Drop folders here, or choose them below.": [
+    "Перетащите папки сюда или выберите их ниже.",
+    "Déposez des dossiers ici ou choisissez-les ci-dessous.",
+    "Ordner hier ablegen oder unten auswählen.",
+    "Suelta carpetas aquí o selecciónalas abajo.",
+    "Trascina le cartelle qui o sceglile sotto."
+  ],
+  "Remove from selection": [
+    "Убрать из списка",
+    "Retirer de la sélection",
+    "Aus Auswahl entfernen",
+    "Quitar de la selección",
+    "Rimuovi dalla selezione"
+  ],
+  "Appearance": [
+    "Оформление",
+    "Apparence",
+    "Aussehen",
+    "Apariencia",
+    "Aspetto"
+  ],
+  "Color": [
+    "Цвет",
+    "Couleur",
+    "Farbe",
+    "Color",
+    "Colore"
+  ],
+  "Custom color": [
+    "Другой цвет",
+    "Couleur personnalisée",
+    "Eigene Farbe",
+    "Color personalizado",
+    "Colore personalizzato"
+  ],
+  "Symbol": [
+    "Символ",
+    "Symbole",
+    "Symbol",
+    "Símbolo",
+    "Simbolo"
+  ],
+  "Choose symbol…": [
+    "Выбрать символ…",
+    "Choisir un symbole…",
+    "Symbol auswählen…",
+    "Elegir símbolo…",
+    "Scegli simbolo…"
+  ],
+  "Cover": [
+    "Обложка",
+    "Couverture",
+    "Titelbild",
+    "Portada",
+    "Copertina"
+  ],
+  "Choose photo…": [
+    "Выбрать фото…",
+    "Choisir une photo…",
+    "Foto auswählen…",
+    "Elegir foto…",
+    "Scegli foto…"
+  ],
+  "PNG or JPEG; source image stays untouched": [
+    "PNG или JPEG; исходное фото не изменяется",
+    "PNG ou JPEG ; la photo d’origine reste intacte",
+    "PNG oder JPEG; das Originalbild bleibt unverändert",
+    "PNG o JPEG; la imagen original no se modifica",
+    "PNG o JPEG; l’immagine originale resta intatta"
+  ],
+  "Remove": [
+    "Убрать",
+    "Retirer",
+    "Entfernen",
+    "Quitar",
+    "Rimuovi"
+  ],
+  "Restore originals": [
+    "Вернуть исходный вид",
+    "Rétablir les originaux",
+    "Originale wiederherstellen",
+    "Restaurar originales",
+    "Ripristina originali"
+  ],
+  "Back": [
+    "Назад",
+    "Retour",
+    "Zurück",
+    "Atrás",
+    "Indietro"
+  ],
+  "Ready to apply": [
+    "Готово к применению",
+    "Prêt à appliquer",
+    "Bereit zum Anwenden",
+    "Listo para aplicar",
+    "Pronto per applicare"
+  ],
+  "Restore original appearances": [
+    "Восстановление исходного вида",
+    "Rétablir l’apparence initiale",
+    "Ursprüngliches Aussehen wiederherstellen",
+    "Restaurar la apariencia original",
+    "Ripristina l’aspetto originale"
+  ],
+  "{count} folders · No subfolders affected": [
+    "Папок: {count} · Вложенные папки не затрагиваются",
+    "{count} dossiers · Sous-dossiers inchangés",
+    "{count} Ordner · Keine Unterordner betroffen",
+    "{count} carpetas · Sin cambios en subcarpetas",
+    "{count} cartelle · Nessuna sottocartella coinvolta"
+  ],
+  "Your original folder appearances are preserved.": [
+    "Исходный вид папок будет сохранён.",
+    "L’apparence initiale de vos dossiers est conservée.",
+    "Das ursprüngliche Aussehen Ihrer Ordner bleibt erhalten.",
+    "Se conserva la apariencia original de tus carpetas.",
+    "L’aspetto originale delle cartelle viene conservato."
+  ],
+  "Restore the appearance saved before the first change.": [
+    "Будет восстановлен вид до первого изменения.",
+    "Rétablissez l’apparence sauvegardée avant le premier changement.",
+    "Stellt das vor der ersten Änderung gespeicherte Aussehen wieder her.",
+    "Restaura la apariencia guardada antes del primer cambio.",
+    "Ripristina l’aspetto salvato prima della prima modifica."
+  ],
+  "Files and recovery details": [
+    "Файлы и восстановление",
+    "Fichiers et récupération",
+    "Dateien und Wiederherstellung",
+    "Archivos y recuperación",
+    "File e ripristino"
+  ],
+  "Update folder icon entries in desktop.ini, preserve other settings, and save the icon and original backup in .foldericons.": [
+    "Записи значка в desktop.ini будут обновлены, остальные настройки сохранены. Значок и резервная копия сохраняются в .foldericons.",
+    "Met à jour l’icône dans desktop.ini, conserve les autres paramètres et enregistre l’icône et la sauvegarde dans .foldericons.",
+    "Aktualisiert die Symboleinträge in desktop.ini, erhält andere Einstellungen und speichert Symbol und Originalsicherung in .foldericons.",
+    "Actualiza el icono en desktop.ini, conserva los demás ajustes y guarda el icono y la copia original en .foldericons.",
+    "Aggiorna le voci dell’icona in desktop.ini, conserva le altre impostazioni e salva icona e backup originale in .foldericons."
+  ],
+  "Restore the exact original desktop.ini and appearance attributes, then remove owned icons and the backup after success.": [
+    "Исходный desktop.ini и атрибуты будут восстановлены. После успеха созданные значки и резервная копия удаляются.",
+    "Rétablit le desktop.ini et les attributs d’origine, puis supprime les icônes créées et la sauvegarde après réussite.",
+    "Stellt desktop.ini und ursprüngliche Attribute exakt wieder her; entfernt danach eigene Symbole und die Sicherung.",
+    "Restaura el desktop.ini y los atributos originales; tras completarse elimina los iconos creados y la copia.",
+    "Ripristina desktop.ini e gli attributi originali, poi elimina le icone create e il backup al termine."
+  ],
+  "Apply to folders": [
+    "Применить к папкам",
+    "Appliquer aux dossiers",
+    "Auf Ordner anwenden",
+    "Aplicar a carpetas",
+    "Applica alle cartelle"
+  ],
+  "Restore folders": [
+    "Восстановить папки",
+    "Rétablir les dossiers",
+    "Ordner wiederherstellen",
+    "Restaurar carpetas",
+    "Ripristina cartelle"
+  ],
+  "Cancel": [
+    "Отмена",
+    "Annuler",
+    "Abbrechen",
+    "Cancelar",
+    "Annulla"
+  ],
+  "Version {version} · Windows x64 · CPU rendering": [
+    "Версия {version} · Windows x64 · CPU-рендеринг",
+    "Version {version} · Windows x64 · Rendu CPU",
+    "Version {version} · Windows x64 · CPU-Rendering",
+    "Versión {version} · Windows x64 · Renderizado CPU",
+    "Versione {version} · Windows x64 · Rendering CPU"
+  ],
+  "Updates": [
+    "Обновления",
+    "Mises à jour",
+    "Updates",
+    "Actualizaciones",
+    "Aggiornamenti"
+  ],
+  "Check for updates on startup": [
+    "Проверять обновления при запуске",
+    "Vérifier les mises à jour au démarrage",
+    "Beim Start nach Updates suchen",
+    "Buscar actualizaciones al iniciar",
+    "Controlla aggiornamenti all’avvio"
+  ],
+  "Downloads and installation need your confirmation.": [
+    "Загрузка и установка выполняются по вашему запросу.",
+    "Le téléchargement et l’installation nécessitent votre accord.",
+    "Download und Installation benötigen Ihre Bestätigung.",
+    "La descarga y la instalación requieren tu confirmación.",
+    "Download e installazione richiedono la tua conferma."
+  ],
+  "Check for updates": [
+    "Проверить обновления",
+    "Rechercher des mises à jour",
+    "Nach Updates suchen",
+    "Buscar actualizaciones",
+    "Controlla aggiornamenti"
+  ],
+  "The app will close, install the verified update and restart. Settings and folder backups are preserved.": [
+    "Приложение закроется, установит проверенное обновление и перезапустится. Настройки и резервные копии папок сохранятся.",
+    "L’application se ferme, installe la mise à jour vérifiée et redémarre. Paramètres et sauvegardes sont conservés.",
+    "Die App schließt, installiert das geprüfte Update und startet neu. Einstellungen und Ordnersicherungen bleiben erhalten.",
+    "La aplicación se cierra, instala la actualización verificada y reinicia. Se conservan los ajustes y las copias.",
+    "L’app si chiude, installa l’aggiornamento verificato e si riavvia. Impostazioni e backup restano conservati."
+  ],
+  "Download and install": [
+    "Загрузить и установить",
+    "Télécharger et installer",
+    "Herunterladen und installieren",
+    "Descargar e instalar",
+    "Scarica e installa"
+  ],
+  "Downloading and verifying update…": [
+    "Загрузка и проверка обновления…",
+    "Téléchargement et vérification…",
+    "Update wird geladen und geprüft…",
+    "Descargando y verificando…",
+    "Download e verifica aggiornamento…"
+  ],
+  "Explorer shortcut": [
+    "Команда в Проводнике",
+    "Raccourci de l’Explorateur",
+    "Explorer-Verknüpfung",
+    "Acceso en el Explorador",
+    "Collegamento in Esplora file"
+  ],
+  "Open this editor from a folder’s right-click menu.": [
+    "Открывайте редактор из контекстного меню папки.",
+    "Ouvrez l’éditeur depuis le menu contextuel d’un dossier.",
+    "Öffnet diesen Editor über das Kontextmenü eines Ordners.",
+    "Abre el editor desde el menú contextual de una carpeta.",
+    "Apri l’editor dal menu contestuale di una cartella."
+  ],
+  "Enable context menu": [
+    "Добавить команду",
+    "Activer le menu contextuel",
+    "Kontextmenü aktivieren",
+    "Activar menú contextual",
+    "Attiva menu contestuale"
+  ],
+  "Remove shortcut": [
+    "Удалить команду",
+    "Supprimer le raccourci",
+    "Verknüpfung entfernen",
+    "Quitar acceso",
+    "Rimuovi collegamento"
+  ],
+  "Windows 11: Show more options. Keep the EXE in place.": [
+    "Windows 11: «Показать дополнительные параметры». Не перемещайте EXE.",
+    "Windows 11 : Afficher plus d’options. Gardez l’EXE au même endroit.",
+    "Windows 11: Weitere Optionen anzeigen. EXE am selben Ort belassen.",
+    "Windows 11: Mostrar más opciones. Mantén el EXE en su ubicación.",
+    "Windows 11: Mostra altre opzioni. Mantieni l’EXE nella stessa posizione."
+  ],
+  "Project repository": [
+    "Репозиторий проекта",
+    "Dépôt du projet",
+    "Projekt-Repository",
+    "Repositorio del proyecto",
+    "Repository del progetto"
+  ],
+  "Done": [
+    "Готово",
+    "Terminé",
+    "Fertig",
+    "Hecho",
+    "Fatto"
+  ],
+  "Diagnostics": [
+    "Диагностика",
+    "Diagnostic",
+    "Diagnose",
+    "Diagnóstico",
+    "Diagnostica"
+  ],
+  "Renderer: CPU rasterization / Windows GDI presentation": [
+    "Рендерер: CPU-растеризация / вывод Windows GDI",
+    "Rendu : rastérisation CPU / affichage Windows GDI",
+    "Renderer: CPU-Rasterung / Windows-GDI-Ausgabe",
+    "Renderizador: rasterización CPU / presentación Windows GDI",
+    "Renderer: rasterizzazione CPU / presentazione Windows GDI"
+  ],
+  "Folder symbols": [
+    "Символы для папок",
+    "Symboles de dossiers",
+    "Ordnersymbole",
+    "Símbolos de carpetas",
+    "Simboli delle cartelle"
+  ],
+  "Preparing original symbols…": [
+    "Подготовка символов…",
+    "Préparation des symboles…",
+    "Symbole werden vorbereitet…",
+    "Preparando símbolos…",
+    "Preparazione simboli…"
+  ],
+  "No symbol": [
+    "Без символа",
+    "Sans symbole",
+    "Kein Symbol",
+    "Sin símbolo",
+    "Nessun simbolo"
+  ],
+  "Content": [
+    "Содержимое",
+    "Contenu",
+    "Inhalt",
+    "Contenido",
+    "Contenuto"
+  ],
+  "Organization": [
+    "Организация",
+    "Organisation",
+    "Organisation",
+    "Organización",
+    "Organizzazione"
+  ],
+  "Status": [
+    "Статус",
+    "État",
+    "Status",
+    "Estado",
+    "Stato"
+  ],
+  "None": [
+    "Нет",
+    "Aucun",
+    "Keins",
+    "Ninguno",
+    "Nessuno"
+  ],
+  "Star": [
+    "Звезда",
+    "Étoile",
+    "Stern",
+    "Estrella",
+    "Stella"
+  ],
+  "Favorite": [
+    "Избранное",
+    "Favori",
+    "Favorit",
+    "Favorito",
+    "Preferito"
+  ],
+  "Work": [
+    "Работа",
+    "Travail",
+    "Arbeit",
+    "Trabajo",
+    "Lavoro"
+  ],
+  "Priority": [
+    "Важно",
+    "Priorité",
+    "Priorität",
+    "Prioridad",
+    "Priorità"
+  ],
+  "Documents": [
+    "Документы",
+    "Documents",
+    "Dokumente",
+    "Documentos",
+    "Documenti"
+  ],
+  "Photos": [
+    "Фото",
+    "Photos",
+    "Fotos",
+    "Fotos",
+    "Foto"
+  ],
+  "Music": [
+    "Музыка",
+    "Musique",
+    "Musik",
+    "Música",
+    "Musica"
+  ],
+  "Videos": [
+    "Видео",
+    "Vidéos",
+    "Videos",
+    "Vídeos",
+    "Video"
+  ],
+  "Code": [
+    "Код",
+    "Code",
+    "Code",
+    "Código",
+    "Codice"
+  ],
+  "Games": [
+    "Игры",
+    "Jeux",
+    "Spiele",
+    "Juegos",
+    "Giochi"
+  ],
+  "Downloads": [
+    "Загрузки",
+    "Téléchargements",
+    "Downloads",
+    "Descargas",
+    "Download"
+  ],
+  "Archive": [
+    "Архив",
+    "Archives",
+    "Archiv",
+    "Archivo",
+    "Archivio"
+  ],
+  "Finance": [
+    "Финансы",
+    "Finances",
+    "Finanzen",
+    "Finanzas",
+    "Finanze"
+  ],
+  "Study": [
+    "Учёба",
+    "Études",
+    "Lernen",
+    "Estudios",
+    "Studio"
+  ],
+  "Travel": [
+    "Путешествия",
+    "Voyage",
+    "Reisen",
+    "Viajes",
+    "Viaggi"
+  ],
+  "Lock": [
+    "Замок",
+    "Verrou",
+    "Schloss",
+    "Candado",
+    "Lucchetto"
+  ],
+  "Ocean": [
+    "Океан",
+    "Océan",
+    "Ozean",
+    "Océano",
+    "Oceano"
+  ],
+  "Meadow": [
+    "Луг",
+    "Prairie",
+    "Wiese",
+    "Pradera",
+    "Prato"
+  ],
+  "Amber": [
+    "Янтарь",
+    "Ambre",
+    "Bernstein",
+    "Ámbar",
+    "Ambra"
+  ],
+  "Coral": [
+    "Коралл",
+    "Corail",
+    "Koralle",
+    "Coral",
+    "Corallo"
+  ],
+  "Iris": [
+    "Ирис",
+    "Iris",
+    "Iris",
+    "Iris",
+    "Iris"
+  ],
+  "Slate": [
+    "Сланец",
+    "Ardoise",
+    "Schiefer",
+    "Pizarra",
+    "Ardesia"
+  ],
+  "Not checked yet": [
+    "Проверка ещё не выполнена",
+    "Pas encore vérifié",
+    "Noch nicht geprüft",
+    "Aún no se ha comprobado",
+    "Non ancora controllato"
+  ],
+  "Choose folders, design an icon, then review an Apply plan.": [
+    "Выберите папки, настройте значок и проверьте изменения.",
+    "Choisissez des dossiers, créez une icône, puis vérifiez les modifications.",
+    "Ordner wählen, Symbol gestalten und Änderungen prüfen.",
+    "Elige carpetas, diseña un icono y revisa los cambios.",
+    "Scegli cartelle, crea un’icona e rivedi le modifiche."
+  ],
+  "Checking releases…": [
+    "Проверка обновлений…",
+    "Recherche des versions…",
+    "Versionen werden geprüft…",
+    "Buscando versiones…",
+    "Controllo versioni…"
+  ],
+  "Wait for installation to finish before adding folders.": [
+    "Дождитесь завершения установки перед добавлением папок.",
+    "Attendez la fin de l’installation avant d’ajouter des dossiers.",
+    "Vor dem Hinzufügen von Ordnern das Installationsende abwarten.",
+    "Espera a que termine la instalación para añadir carpetas.",
+    "Attendi il termine dell’installazione prima di aggiungere cartelle."
+  ],
+  "Checking folders…": [
+    "Проверка папок…",
+    "Vérification des dossiers…",
+    "Ordner werden geprüft…",
+    "Comprobando carpetas…",
+    "Controllo cartelle…"
+  ],
+  "Settings saved.": [
+    "Настройки сохранены.",
+    "Paramètres enregistrés.",
+    "Einstellungen gespeichert.",
+    "Ajustes guardados.",
+    "Impostazioni salvate."
+  ],
+  "Review the exact folders below, then confirm the plan.": [
+    "Проверьте список папок ниже и подтвердите изменения.",
+    "Vérifiez les dossiers ci-dessous, puis confirmez.",
+    "Die folgenden Ordner prüfen und den Plan bestätigen.",
+    "Revisa las carpetas y confirma los cambios.",
+    "Controlla le cartelle sotto, poi conferma il piano."
+  ],
+  "Selection or design changed. Review the changes again.": [
+    "Список папок или оформление изменились. Проверьте изменения снова.",
+    "La sélection ou le style a changé. Vérifiez à nouveau.",
+    "Auswahl oder Gestaltung geändert. Änderungen erneut prüfen.",
+    "La selección o el diseño cambió. Revisa los cambios de nuevo.",
+    "La selezione o lo stile è cambiato. Rivedi le modifiche."
+  ],
+  "Batch completed. Review each result below.": [
+    "Обработка завершена. Проверьте результаты ниже.",
+    "Traitement terminé. Consultez chaque résultat ci-dessous.",
+    "Stapel abgeschlossen. Ergebnisse unten prüfen.",
+    "Proceso completado. Revisa cada resultado abajo.",
+    "Operazione completata. Controlla i risultati sotto."
+  ],
+  "You are up to date.": [
+    "Установлена последняя версия.",
+    "Vous êtes à jour.",
+    "Die Version ist aktuell.",
+    "Tienes la última versión.",
+    "La versione è aggiornata."
+  ],
+  "Update checks are disabled in preview mode.": [
+    "Проверка обновлений отключена в режиме предпросмотра.",
+    "Les mises à jour sont désactivées en mode aperçu.",
+    "Update-Prüfungen sind im Vorschaumodus deaktiviert.",
+    "Las actualizaciones están desactivadas en la vista previa.",
+    "I controlli aggiornamenti sono disattivati nell’anteprima."
+  ],
+  "Operation failed": [
+    "Не удалось выполнить действие",
+    "L’opération a échoué",
+    "Vorgang fehlgeschlagen",
+    "La operación falló",
+    "Operazione non riuscita"
+  ],
+  "Worker unavailable": [
+    "Фоновая обработка недоступна",
+    "Traitement indisponible",
+    "Hintergrundverarbeitung nicht verfügbar",
+    "Proceso en segundo plano no disponible",
+    "Elaborazione in background non disponibile"
+  ],
+  "Previous update failed": [
+    "Предыдущее обновление не удалось",
+    "La dernière mise à jour a échoué",
+    "Vorheriges Update fehlgeschlagen",
+    "La actualización anterior falló",
+    "L’aggiornamento precedente non è riuscito"
+  ],
+  "Cannot load settings; startup checks disabled for this session": [
+    "Не удалось загрузить настройки; автопроверка отключена на этот сеанс",
+    "Impossible de charger les paramètres ; recherche au démarrage désactivée pour cette session",
+    "Einstellungen nicht geladen; Startprüfung für diese Sitzung deaktiviert",
+    "No se pudieron cargar los ajustes; la búsqueda al iniciar está desactivada en esta sesión",
+    "Impossibile caricare le impostazioni; controllo all’avvio disattivato per questa sessione"
+  ],
+  "Update check failed": [
+    "Проверка обновлений не удалась",
+    "Échec de recherche des mises à jour",
+    "Update-Prüfung fehlgeschlagen",
+    "Error al buscar actualizaciones",
+    "Controllo aggiornamenti non riuscito"
+  ],
+  "Update installation failed": [
+    "Установка обновления не удалась",
+    "Échec de l’installation de la mise à jour",
+    "Update-Installation fehlgeschlagen",
+    "Error al instalar la actualización",
+    "Installazione aggiornamento non riuscita"
+  ],
+  "Select folders to customize": [
+    "Выберите папки для оформления",
+    "Choisissez les dossiers à personnaliser",
+    "Ordner zum Anpassen auswählen",
+    "Selecciona carpetas para personalizar",
+    "Seleziona cartelle da personalizzare"
+  ],
+  "Choose photo cover": [
+    "Выберите фото для обложки",
+    "Choisissez une photo de couverture",
+    "Titelbild auswählen",
+    "Elige foto de portada",
+    "Scegli foto di copertina"
+  ],
+  "Explorer context menu enabled.": [
+    "Команда добавлена в меню Проводника.",
+    "Menu contextuel de l’Explorateur activé.",
+    "Explorer-Kontextmenü aktiviert.",
+    "Menú contextual del Explorador activado.",
+    "Menu contestuale di Esplora file attivato."
+  ],
+  "Explorer context menu removed.": [
+    "Команда удалена из меню Проводника.",
+    "Menu contextuel de l’Explorateur supprimé.",
+    "Explorer-Kontextmenü entfernt.",
+    "Menú contextual del Explorador eliminado.",
+    "Menu contestuale di Esplora file rimosso."
+  ],
+  "Could not process folder": [
+    "Не удалось обработать папку",
+    "Impossible de traiter le dossier",
+    "Ordner konnte nicht verarbeitet werden",
+    "No se pudo procesar la carpeta",
+    "Impossibile elaborare la cartella"
+  ],
+  "Applied · {path}": [
+    "Применено · {path}",
+    "Appliqué · {path}",
+    "Angewendet · {path}",
+    "Aplicado · {path}",
+    "Applicato · {path}"
+  ],
+  "Restored · {path}": [
+    "Восстановлено · {path}",
+    "Rétabli · {path}",
+    "Wiederhergestellt · {path}",
+    "Restaurado · {path}",
+    "Ripristinato · {path}"
+  ],
+  "Failed · {path}": [
+    "Ошибка · {path}",
+    "Échec · {path}",
+    "Fehlgeschlagen · {path}",
+    "Error · {path}",
+    "Errore · {path}"
+  ],
+  "Added: {count}; already selected: {duplicates}; skipped: {overflow} (limit {limit}); unsupported: {rejected}.": [
+    "Добавлено: {count}; уже выбрано: {duplicates}; пропущено: {overflow} (лимит {limit}); не поддерживается: {rejected}.",
+    "Ajoutés : {count} ; déjà sélectionnés : {duplicates} ; ignorés : {overflow} (limite {limit}) ; non pris en charge : {rejected}.",
+    "Hinzugefügt: {count}; bereits ausgewählt: {duplicates}; übersprungen: {overflow} (Limit {limit}); nicht unterstützt: {rejected}.",
+    "Añadidas: {count}; ya seleccionadas: {duplicates}; omitidas: {overflow} (límite {limit}); no compatibles: {rejected}.",
+    "Aggiunte: {count}; già selezionate: {duplicates}; ignorate: {overflow} (limite {limit}); non supportate: {rejected}."
+  ],
+  "Wait for the current operation to finish before closing.": [
+    "Дождитесь завершения текущего действия перед закрытием.",
+    "Attendez la fin de l’opération avant de fermer.",
+    "Vor dem Schließen das Ende des Vorgangs abwarten.",
+    "Espera a que termine la operación antes de cerrar.",
+    "Attendi il termine dell’operazione prima di chiudere."
+  ],
+  "Review the selected folders, then apply when you are ready.": [
+    "Проверьте выбранные папки и примените изменения.",
+    "Vérifiez les dossiers sélectionnés, puis appliquez.",
+    "Ausgewählte Ordner prüfen und bei Bereitschaft anwenden.",
+    "Revisa las carpetas seleccionadas y aplica cuando quieras.",
+    "Controlla le cartelle selezionate, poi applica."
+  ],
+  "Folders selected. Customize their look, then review your changes.": [
+    "Папки выбраны. Настройте вид и проверьте изменения.",
+    "Dossiers sélectionnés. Personnalisez leur apparence, puis vérifiez.",
+    "Ordner ausgewählt. Aussehen anpassen und Änderungen prüfen.",
+    "Carpetas seleccionadas. Personaliza su aspecto y revisa los cambios.",
+    "Cartelle selezionate. Personalizza l’aspetto e rivedi le modifiche."
+  ],
+  "Plan changed; review it again.": [
+    "План изменился; проверьте его снова.",
+    "Le plan a changé ; vérifiez à nouveau.",
+    "Plan geändert; erneut prüfen.",
+    "El plan cambió; revísalo de nuevo.",
+    "Il piano è cambiato; rivedilo."
+  ]
+}

@@ -6,6 +6,7 @@ mod ui;
 use folder_icons::{
     REPOSITORY, VERSION,
     engine::{self, Action, FolderPlan},
+    i18n::{Language, Message},
     platform,
     render::{self, Style},
     selection,
@@ -21,10 +22,10 @@ use std::{
 enum Work {
     LoadSettings(Option<PathBuf>),
     SaveSettings(Settings),
-    PickFolders,
+    PickFolders(Language),
     InspectPaths(Vec<PathBuf>, Vec<PathBuf>, usize),
     SymbolCatalog,
-    PickPhoto,
+    PickPhoto(Language),
     Preview(u64, Style, Option<PathBuf>),
     Plan(u64, Vec<PathBuf>, Action, Option<Vec<u8>>),
     Execute(Vec<FolderPlan>),
@@ -39,8 +40,8 @@ enum ResultEvent {
     Photo(Option<PathBuf>),
     Preview(u64, image::RgbaImage, Vec<u8>),
     Plan(u64, Vec<FolderPlan>, Vec<String>),
-    Executed(Vec<String>),
-    Message(String),
+    Executed(Vec<Message>),
+    Message(Message),
     Error(String),
 }
 fn main() {
@@ -121,10 +122,10 @@ struct App {
     plans: Vec<FolderPlan>,
     plan_errors: Vec<String>,
     plan_action: Action,
-    report: Vec<String>,
-    message: String,
+    report: Vec<Message>,
+    message: Message,
     update: Option<Box<updates::Available>>,
-    update_status: String,
+    update_status: Message,
     progress: Option<(u64, u64)>,
     render_timing: String,
     pending_paths: Vec<PathBuf>,
@@ -168,11 +169,16 @@ impl App {
             updates::config()
                 .and_then(|config| updates::Service::new(config, move || ctx.request_repaint()))
         };
-        let update_status = network
-            .as_ref()
-            .err()
-            .cloned()
-            .unwrap_or_else(|| "Not checked yet".into());
+        let update_status = network.as_ref().err().map_or_else(
+            || Message::new("Not checked yet"),
+            |error| {
+                if isolated {
+                    Message::new("Update checks are disabled in preview mode.")
+                } else {
+                    Message::new("Update check failed").detail(error.clone())
+                }
+            },
+        );
         if !isolated {
             tx.try_send(Work::LoadSettings(update_error))
                 .expect("Initial queue is empty");
@@ -231,7 +237,7 @@ impl App {
                 if catalog {
                     self.symbol_picker = false;
                 }
-                self.message = format!("Worker unavailable: {e}");
+                self.message = Message::new("Worker unavailable").detail(e.to_string());
             }
         }
     }
@@ -288,10 +294,13 @@ impl App {
                     self.settings = settings;
                     self.settings_ready = true;
                     if let Some(error) = error {
-                        self.message = error;
+                        self.message = Message::new(
+                            "Cannot load settings; startup checks disabled for this session",
+                        )
+                        .detail(error);
                     }
                     if let Some(error) = update_error {
-                        self.message = format!("Previous update failed: {error}");
+                        self.message = Message::new("Previous update failed").detail(error);
                         self.settings_open = true;
                     }
                     if self.settings.check_on_startup {
@@ -303,7 +312,11 @@ impl App {
                     self.queue_folders(paths);
                 }
                 ResultEvent::Selection(intake) => {
-                    self.message = intake.message();
+                    self.message = Message::new("Added: {count}; already selected: {duplicates}; skipped: {overflow} (limit {limit}); unsupported: {rejected}.")
+                        .with("count", intake.folders.len()).with("duplicates", intake.duplicates).with("overflow", intake.overflow).with("limit", selection::MAX_FOLDERS).with("rejected", intake.rejected.len());
+                    if let Some(detail) = intake.rejected.first() {
+                        self.message = self.message.clone().detail(detail.clone());
+                    }
                     if !intake.folders.is_empty() {
                         self.paths.extend(intake.folders);
                         self.report.clear();
@@ -352,7 +365,7 @@ impl App {
                 }
                 ResultEvent::Message(message) => self.message = message,
                 ResultEvent::Error(error) => {
-                    self.message = error;
+                    self.message = Message::new("Operation failed").detail(error);
                     self.plans.clear();
                 }
             }
@@ -384,7 +397,8 @@ impl App {
                     self.net_busy = false;
                     match result {
                         Ok(Some(update)) => {
-                            self.update_status = format!("Version {} is available", update.version);
+                            self.update_status = Message::new("Version {version} is available")
+                                .with("version", &update.version);
                             self.update = Some(update);
                         }
                         Ok(None) => {
@@ -392,7 +406,7 @@ impl App {
                             self.update_status = "You are up to date.".into();
                         }
                         Err(error) => {
-                            self.update_status = error;
+                            self.update_status = Message::new("Update check failed").detail(error);
                             if !self.check_is_startup {
                                 self.settings_open = true;
                             }
@@ -410,7 +424,8 @@ impl App {
                         Ok(()) => self.restarting = true,
                         Err(error) => {
                             self.progress = None;
-                            self.update_status = error;
+                            self.update_status =
+                                Message::new("Update installation failed").detail(error);
                             self.settings_open = true;
                         }
                     }
@@ -515,10 +530,9 @@ fn run_work(
                 Err(e) => ResultEvent::Settings(
                     Settings {
                         check_on_startup: false,
+                        ..Settings::default()
                     },
-                    Some(format!(
-                        "Cannot load settings; startup checks disabled for this session: {e:#}"
-                    )),
+                    Some(format!("{e:#}")),
                     diagnostic,
                 ),
             }
@@ -527,9 +541,9 @@ fn run_work(
             settings::save(&s)?;
             ResultEvent::Saved
         }
-        Work::PickFolders => ResultEvent::Paths(
+        Work::PickFolders(language) => ResultEvent::Paths(
             rfd::FileDialog::new()
-                .set_title("Select folders to customize")
+                .set_title(language.text("Select folders to customize"))
                 .pick_folders()
                 .unwrap_or_default(),
         ),
@@ -537,10 +551,10 @@ fn run_work(
             ResultEvent::Selection(selection::inspect(&paths, &existing, overflow))
         }
         Work::SymbolCatalog => ResultEvent::Symbols(render::symbol_catalog()),
-        Work::PickPhoto => ResultEvent::Photo(
+        Work::PickPhoto(language) => ResultEvent::Photo(
             rfd::FileDialog::new()
-                .set_title("Choose photo cover")
-                .add_filter("Photos", &["png", "jpg", "jpeg"])
+                .set_title(language.text("Choose photo cover"))
+                .add_filter(language.text("Photos"), &["png", "jpg", "jpeg"])
                 .pick_file(),
         ),
         Work::Preview(revision, style, photo) => {
@@ -562,7 +576,7 @@ fn run_work(
             for (path, result) in engine::batch_plan(&paths, action, ico.as_deref()) {
                 match result {
                     Ok(plan) => plans.push(plan),
-                    Err(e) => errors.push(format!("Skipped {}: {e:#}", path.display())),
+                    Err(e) => errors.push(format!("{}: {e:#}", path.display())),
                 }
             }
             ResultEvent::Plan(revision, plans, errors)
@@ -574,13 +588,20 @@ fn run_work(
                 match engine::execute(&plan) {
                     Ok(()) => {
                         platform::notify_folder(&plan.folder);
-                        report.push(format!(
-                            "OK · {:?} · {}",
-                            plan.action,
-                            plan.folder.display()
-                        ));
+                        report.push(
+                            Message::new(if plan.action == Action::Apply {
+                                "Applied · {path}"
+                            } else {
+                                "Restored · {path}"
+                            })
+                            .with("path", plan.folder.display()),
+                        );
                     }
-                    Err(e) => report.push(format!("FAILED · {} · {e:#}", plan.folder.display())),
+                    Err(e) => report.push(
+                        Message::new("Failed · {path}")
+                            .with("path", plan.folder.display())
+                            .detail(format!("{e:#}")),
+                    ),
                 }
             }
             ResultEvent::Executed(report)
@@ -632,7 +653,11 @@ mod intake_tests {
         app.queue_folders(vec![folder.join(".")]);
         settle(&mut app, &ctx);
         assert_eq!(app.paths.len(), 1);
-        assert!(app.message.contains("already selected"));
+        assert!(
+            app.message
+                .render(Language::En)
+                .contains("already selected: 1")
+        );
         assert_eq!(std::fs::read_dir(folder).unwrap().count(), 0);
     }
     #[test]

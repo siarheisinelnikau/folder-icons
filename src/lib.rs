@@ -1,4 +1,5 @@
 pub mod engine;
+pub mod i18n;
 pub mod ini;
 pub mod platform;
 pub mod render;

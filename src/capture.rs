@@ -54,7 +54,9 @@ pub fn fixture(ctx: egui::Context, root: Option<&Path>, scenario: &str) -> Resul
         }
         app.message = "Review the selected folders, then apply when you are ready.".into();
     } else if scenario == "error" {
-        app.plan_errors.push("Skipped folder: desktop.ini changed after the plan was created. Review it and build a new plan.".into());
+        app.plan_errors
+            .push("desktop.ini changed after the plan was created".into());
+        app.message = "Plan changed; review it again.".into();
     } else if !app.paths.is_empty() {
         app.message = "Folders selected. Customize their look, then review your changes.".into();
     }
@@ -73,6 +75,8 @@ pub fn run(args: &[OsString]) -> Result<()> {
     let mut width = crate::ui::DEFAULT_SIZE[0] as u32;
     let mut height = crate::ui::DEFAULT_SIZE[1] as u32;
     let mut scale = 1.0f32;
+    let mut language = folder_icons::i18n::Language::En;
+    let mut theme = folder_icons::settings::Theme::Light;
     for pair in args[1..].chunks(2) {
         ensure!(pair.len() == 2, "Capture option needs a value");
         let value = pair[1].to_str().context("Invalid capture option")?;
@@ -83,6 +87,17 @@ pub fn run(args: &[OsString]) -> Result<()> {
             Some("--width") => width = value.parse()?,
             Some("--height") => height = value.parse()?,
             Some("--scale") => scale = value.parse()?,
+            Some("--language") => {
+                language =
+                    folder_icons::i18n::Language::from_code(value).context("Unknown language")?
+            }
+            Some("--theme") => {
+                theme = match value {
+                    "light" => folder_icons::settings::Theme::Light,
+                    "dark" => folder_icons::settings::Theme::Dark,
+                    _ => bail!("Unknown theme"),
+                }
+            }
             _ => bail!("Unknown capture option"),
         }
     }
@@ -110,6 +125,9 @@ pub fn run(args: &[OsString]) -> Result<()> {
     let started = Instant::now();
     let ctx = egui::Context::default();
     let mut app = fixture(ctx.clone(), root.as_deref(), &scenario)?;
+    app.settings.language = language;
+    app.settings.theme = theme;
+    crate::ui::apply_theme(&ctx, theme);
     app.settings_open = screen == "settings";
     if screen.starts_with("symbols") {
         app.symbol_picker = true;
@@ -163,7 +181,7 @@ pub fn run(args: &[OsString]) -> Result<()> {
         image::ExtendedColorType::Rgba8,
     )?;
     folder_icons::platform::atomic_write(&output, &png)?;
-    let metadata = serde_json::json!({"version":crate::VERSION,"screen":screen,"scenario":scenario,"logical_size":[width,height],"scale":scale,"physical_size":[physical_width,physical_height],"backend":"egui_software_backend CPU; production client UI; no native chrome or presentation","frames":4,"elapsed_ms":started.elapsed().as_millis(),"network":false,"folder_mutations":false});
+    let metadata = serde_json::json!({"version":crate::VERSION,"screen":screen,"scenario":scenario,"language":language.code(),"theme":format!("{theme:?}"),"logical_size":[width,height],"scale":scale,"physical_size":[physical_width,physical_height],"backend":"egui_software_backend CPU; production client UI; no native chrome or presentation","frames":4,"elapsed_ms":started.elapsed().as_millis(),"network":false,"folder_mutations":false});
     folder_icons::platform::atomic_write(
         &output.with_extension("json"),
         &serde_json::to_vec_pretty(&metadata)?,
