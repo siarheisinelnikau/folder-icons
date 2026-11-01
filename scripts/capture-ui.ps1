@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory=$true)][string]$FixtureRoot,
     [string]$OutputDirectory,
     [string]$ExecutablePath,
-    [switch]$Diagnostics
+    [switch]$Diagnostics,
+    [ValidateSet("en", "ru", "fr", "de", "es", "it")][string]$Language = "en",
+    [ValidateSet("light", "dark")][string]$Theme = "light"
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -13,6 +15,7 @@ if (-not $OutputDirectory) { $OutputDirectory = Join-Path $projectRoot '.local/v
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 function Invoke-OwnedDiagnostic([string[]]$AppArguments, [int]$TimeoutMilliseconds) {
+    if ($AppArguments[0] -eq '--capture') { $AppArguments += @('--language', $Language, '--theme', $Theme) }
     $quotedArguments = $AppArguments | ForEach-Object { '"' + $_.Replace('"', '') + '"' }
     $captureProcess = Start-Process -FilePath $exePath -ArgumentList $quotedArguments -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru
     if (-not $captureProcess.WaitForExit($TimeoutMilliseconds)) {

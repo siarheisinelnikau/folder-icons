@@ -52,10 +52,24 @@ impl Language {
             .map_or(key, |translations| translations[index].as_str())
     }
     pub fn format(self, key: &'static str, values: &[(&str, String)]) -> String {
-        let mut text = self.text(key).to_owned();
-        for (name, value) in values {
-            text = text.replace(&format!("{{{name}}}"), value);
+        let template = self.text(key);
+        let mut text = String::with_capacity(template.len());
+        let mut rest = template;
+        while let Some(start) = rest.find('{') {
+            text.push_str(&rest[..start]);
+            let Some(end) = rest[start + 1..].find('}') else {
+                text.push_str(&rest[start..]);
+                return text;
+            };
+            let name = &rest[start + 1..start + 1 + end];
+            if let Some((_, value)) = values.iter().find(|(key, _)| *key == name) {
+                text.push_str(value);
+            } else {
+                text.push_str(&rest[start..start + end + 2]);
+            }
+            rest = &rest[start + end + 2..];
         }
+        text.push_str(rest);
         text
     }
 }
@@ -137,6 +151,13 @@ mod tests {
         let message = Message::new("Applied · {path}").with("path", path);
         assert_eq!(message.render(Language::En), format!("Applied · {path}"));
         assert_eq!(message.render(Language::Ru), format!("Применено · {path}"));
+        assert_eq!(
+            Language::De.format(
+                "{first} {second}",
+                &[("first", "{second}".into()), ("second", "path".into())]
+            ),
+            "{second} path"
+        );
         assert_eq!(
             Language::Fr.text("Future English fallback"),
             "Future English fallback"

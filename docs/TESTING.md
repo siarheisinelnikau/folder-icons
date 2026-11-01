@@ -1,3 +1,25 @@
+# FolderIcons 0.2.0 verification
+
+The 0.2.0 change adds 119 six-language UI messages, message parameters retained until paint, and saved Light/Dark settings. Catalog tests check every translation and parameter set. Settings tests load the legacy format without language/theme fields and roundtrip a changed language/theme while preserving startup-update opt-out. A formatting regression ensures placeholder-like text inside user data is never interpreted as another parameter.
+
+Source review retains the existing `egui_software_backend` CPU rasterizer and pinned `softbuffer` Windows GDI presentation path. `Host::paint` skips hidden/minimized/occluded windows; dirty worker state survives for restore; `about_to_wait` uses `Wait` or meaningful work deadlines. Applying the selected theme happens only on a real theme change, and saving preferences occurs only after a changed control. Language lookup uses an initialized-once built-in catalog, with no network requests or per-frame disk reads.
+
+Real 0.2.0 production client-area images in `docs/screenshots` cover English light main/settings, Russian dark main, German dark settings, French light main, Spanish dark main and Italian light main. All seven finite offscreen capture invocations rendered four frames, saved fresh PNG/JSON files and exited with code 0. Each actual PNG was opened and inspected for text, spacing, controls, overflow, readable palette and preserved Unicode folder names. The captures do not certify OS input, native dialog controls, registry integration, idle/hidden rendering or subjective responsiveness.
+
+To select a capture language/theme:
+
+```powershell
+./scripts/capture-ui.ps1 -FixtureRoot ./.test-output/visual-fixtures -Language ru -Theme dark
+# Or one bounded offscreen production frame sequence:
+./dist/FolderIcons-v0.2.0.exe --capture E:/captures/settings-de.png --screen settings --scenario populated --fixture-root E:/fixtures --language de --theme dark
+```
+
+Native Windows dialog button localization follows the OS; FolderIcons supplies translated dialog titles and filters. Optional Explorer registration uses the selected language only after the user chooses Enable context menu; merely switching language does not write to the registry. Technical errors remain original diagnostics under translated failure labels.
+
+Current checks, packaged hash and runtime sample are recorded below when complete. No real folder appearance, normal settings, registry entry or updater was modified during these checks.
+
+# Historical verification (0.1.1 and earlier)
+
 # Shared updater and icon audit, 0.1.1
 
 The old optimized executable had no PE icon resource section. The application now embeds matching original folder artwork at 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixels, and explicitly assigns the window/taskbar artwork. `inspect_executable.py` compares the final PE payload with the source ICO and checks file/product versions; `verify_icons.py` draws loaded native icon resources on light/dark backgrounds without opening a window. This editor has no tray.

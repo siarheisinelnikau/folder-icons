@@ -135,7 +135,7 @@ pub fn notify_folder(path: &Path) {
     let _ = path;
 }
 
-pub fn context_menu(enable: bool) -> Result<()> {
+pub fn context_menu(enable: bool, label: &str) -> Result<()> {
     #[cfg(windows)]
     {
         use windows_sys::Win32::{Foundation::ERROR_SUCCESS, System::Registry::*};
@@ -197,7 +197,7 @@ pub fn context_menu(enable: bool) -> Result<()> {
         }
         let exe = std::env::current_exe()?;
         let base = "Software\\Classes\\Directory\\shell\\FolderIcons";
-        set(base, "", "Customize with FolderIcons")?;
+        set(base, "", label)?;
         set(base, "Icon", &format!("\"{}\",0", exe.display()))?;
         set(
             &format!("{base}\\command"),
@@ -208,7 +208,7 @@ pub fn context_menu(enable: bool) -> Result<()> {
     }
     #[cfg(not(windows))]
     {
-        let _ = enable;
+        let _ = (enable, label);
         bail!("Explorer integration is Windows-only")
     }
 }

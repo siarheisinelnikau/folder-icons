@@ -29,7 +29,7 @@ enum Work {
     Preview(u64, Style, Option<PathBuf>),
     Plan(u64, Vec<PathBuf>, Action, Option<Vec<u8>>),
     Execute(Vec<FolderPlan>),
-    Context(bool),
+    Context(bool, Language),
 }
 enum ResultEvent {
     Settings(Settings, Option<String>, Option<String>),
@@ -606,8 +606,8 @@ fn run_work(
             }
             ResultEvent::Executed(report)
         }
-        Work::Context(enable) => {
-            platform::context_menu(enable)?;
+        Work::Context(enable, language) => {
+            platform::context_menu(enable, language.text("Customize with FolderIcons"))?;
             ResultEvent::Message(
                 if enable {
                     "Explorer context menu enabled."

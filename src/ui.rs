@@ -31,7 +31,7 @@ impl Palette {
             Theme::Dark => Self {
                 ink: Color32::from_rgb(231, 237, 245),
                 muted: Color32::from_rgb(167, 184, 201),
-                accent: Color32::from_rgb(38, 145, 130),
+                accent: Color32::from_rgb(27, 116, 105),
                 border: Color32::from_rgb(66, 82, 99),
                 canvas: Color32::from_rgb(22, 30, 40),
                 surface: Color32::from_rgb(31, 42, 55),
@@ -625,8 +625,8 @@ impl App {
             ui.add_space(8.);ui.separator();section(ui,l.text("Explorer shortcut"));
             secondary(ui,l.text("Open this editor from a folder’s right-click menu."));
             ui.horizontal(|ui|{
-                if ui.add_enabled(!self.local_busy,egui::Button::new(l.text("Enable context menu"))).clicked(){self.send(Work::Context(true));}
-                if ui.add_enabled(!self.local_busy,egui::Button::new(l.text("Remove shortcut"))).clicked(){self.send(Work::Context(false));}
+                if ui.add_enabled(!self.local_busy,egui::Button::new(l.text("Enable context menu"))).clicked(){self.send(Work::Context(true, l));}
+                if ui.add_enabled(!self.local_busy,egui::Button::new(l.text("Remove shortcut"))).clicked(){self.send(Work::Context(false, l));}
             });
             ui.small(RichText::new(l.text("Windows 11: Show more options. Keep the EXE in place.")).color(p.muted));
             ui.add_space(8.);ui.separator();
