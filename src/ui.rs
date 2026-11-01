@@ -73,6 +73,11 @@ pub fn configure(ctx: &egui::Context) {
     apply_theme(ctx, Theme::Light);
 }
 pub fn apply_theme(ctx: &egui::Context, theme: Theme) {
+    // An explicit saved choice must survive later Windows theme notifications.
+    ctx.set_theme(match theme {
+        Theme::Light => egui::Theme::Light,
+        Theme::Dark => egui::Theme::Dark,
+    });
     let p = Palette::for_theme(theme);
     let mut style = egui::Style {
         visuals: if theme == Theme::Dark {
@@ -722,5 +727,43 @@ fn friendly_path(path: &std::path::Path) -> String {
         format!(r"\\{unc}")
     } else {
         text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn saved_theme_survives_opposite_system_notifications_and_keeps_its_palette() {
+        let context = egui::Context::default();
+        for requested in [Theme::Light, Theme::Dark, Theme::Light] {
+            apply_theme(&context, requested);
+            let expected = if requested == Theme::Dark {
+                egui::Theme::Dark
+            } else {
+                egui::Theme::Light
+            };
+            let opposite = if expected == egui::Theme::Dark {
+                egui::Theme::Light
+            } else {
+                egui::Theme::Dark
+            };
+            let _ = context.run(
+                egui::RawInput {
+                    system_theme: Some(opposite),
+                    ..Default::default()
+                },
+                |ctx| {
+                    assert_eq!(ctx.theme(), expected);
+                    let style = ctx.style();
+                    let colors = Palette::for_theme(requested);
+                    assert_eq!(style.visuals.dark_mode, requested == Theme::Dark);
+                    assert_eq!(style.visuals.panel_fill, colors.canvas);
+                    assert_eq!(style.visuals.window_fill, colors.surface);
+                    assert_eq!(style.visuals.override_text_color, Some(colors.ink));
+                },
+            );
+        }
     }
 }
